@@ -545,12 +545,15 @@ bool PeerToPeer::createClient(tJNI_HANDLE jniHandle, uint16_t miu, uint8_t rw) {
                       fn, client.get(), jniHandle);
 
   {
-    SyncEventGuard guard(mClients[i]->mRegisteringEvent);
-    NFA_P2pRegisterClient(NFA_P2P_DLINK_TYPE, nfaClientCallback);
-    mClients[i]->mRegisteringEvent.wait();  // wait for NFA_P2P_REG_CLIENT_EVT
+    if(i < sMax)
+    {
+      SyncEventGuard guard(mClients[i]->mRegisteringEvent);
+      NFA_P2pRegisterClient(NFA_P2P_DLINK_TYPE, nfaClientCallback);
+      mClients[i]->mRegisteringEvent.wait();  // wait for NFA_P2P_REG_CLIENT_EVT
+    }
   }
 
-  if (mClients[i]->mNfaP2pClientHandle != NFA_HANDLE_INVALID) {
+  if (i < sMax && mClients[i]->mNfaP2pClientHandle != NFA_HANDLE_INVALID) {
     DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
         "%s: exit; new client jniHandle: %u   NFA Handle: 0x%04x", fn,
         jniHandle, client->mClientConn->mNfaConnHandle);
@@ -1104,8 +1107,13 @@ void PeerToPeer::resetP2pListenMask() {
   mP2pListenTechMask = NFA_TECHNOLOGY_MASK_A | NFA_TECHNOLOGY_MASK_F |
                        NFA_TECHNOLOGY_MASK_A_ACTIVE |
                        NFA_TECHNOLOGY_MASK_F_ACTIVE;
+#if (NXP_EXTNS == TRUE)
+  if (NfcConfig::hasKey(NAME_P2P_LISTEN_TECH_MASK))
+    mP2pListenTechMask = NfcConfig::getUnsigned(NAME_P2P_LISTEN_TECH_MASK);
+#else
   if (NfcConfig::hasKey("P2P_LISTEN_TECH_MASK"))
     mP2pListenTechMask = NfcConfig::getUnsigned("P2P_LISTEN_TECH_MASK");
+#endif
 }
 
 /*******************************************************************************
