@@ -26,6 +26,7 @@ import android.app.backup.BackupManager;
 import android.app.KeyguardManager;
 import android.app.PendingIntent;
 import android.app.admin.DevicePolicyManager;
+import android.app.BroadcastOptions;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -3357,16 +3358,21 @@ public class NfcService implements DeviceHostListener {
                             return;
                     }
 
-                    if (mScreenState == ScreenStateHelper.SCREEN_STATE_ON_UNLOCKED) {
-                      applyRouting(false);
-                    }
-                    int screen_state_mask = (mNfcUnlockManager.isLockscreenPollingEnabled()) ?
-                                (ScreenStateHelper.SCREEN_POLLING_TAG_MASK | mScreenState) : mScreenState;
+                    mRoutingWakeLock.acquire();
+                    try {
+                      if (mScreenState == ScreenStateHelper.SCREEN_STATE_ON_UNLOCKED) {
+                        applyRouting(false);
+                      }
+                      int screen_state_mask = (mNfcUnlockManager.isLockscreenPollingEnabled()) ?
+                                  (ScreenStateHelper.SCREEN_POLLING_TAG_MASK | mScreenState) : mScreenState;
 
-                   if (mNfcUnlockManager.isLockscreenPollingEnabled())
+                      if (mNfcUnlockManager.isLockscreenPollingEnabled())
                         applyRouting(false);
 
-                    mDeviceHost.doSetScreenState(screen_state_mask);
+                      mDeviceHost.doSetScreenState(screen_state_mask);
+                    } finally {
+                      mRoutingWakeLock.release();
+                    }
                     break;
 
                 case MSG_SCR_TIMEOUT:
@@ -3560,10 +3566,13 @@ public class NfcService implements DeviceHostListener {
                 }
                 String url = new String ("nfc://secure:0/" + reader + "/" + aidString.toString());
                 intent.setData(Uri.parse(url));
+
+                final BroadcastOptions options = BroadcastOptions.makeBasic();
+                options.setBackgroundActivityStartsAllowed(true);
                 for (int i = 0; i < nfcAccess.length; i++) {
                     if (nfcAccess[i]) {
                         intent.setPackage(mNfcEventInstalledPackages.get(i));
-                        mContext.sendBroadcast(intent);
+                        mContext.sendBroadcast(intent, null, options.toBundle());
                     }
                 }
             } catch (RemoteException e) {
