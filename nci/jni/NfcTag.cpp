@@ -1210,6 +1210,9 @@ void NfcTag::selectP2p() {
   static const char fn[] = "NfcTag::selectP2p";
   uint8_t rfDiscoveryId = 0;
 
+  if(mNumDiscTechList > MAX_NUM_TECHNOLOGY)
+    mNumDiscTechList = MAX_NUM_TECHNOLOGY;
+
   for (int i = 0; i < mNumDiscTechList; i++) {
     // if remote device does not support P2P, just skip it
     if (mTechLibNfcTypesDiscData[i] != NFA_PROTOCOL_NFC_DEP) continue;
