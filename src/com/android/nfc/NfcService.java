@@ -210,6 +210,8 @@ public class NfcService implements DeviceHostListener {
     static final int MSG_DEINIT_WIREDSE = 66;
     static final int MSG_READ_T4TNFCEE = 67;
     static final int MSG_WRITE_T4TNFCEE = 68;
+    static final int MSG_TXLDO_OVERCURRENT_RECOVERY = 69;
+    private static final int STATE_TXLDO_OVERCURRENT_ERROR = 0xE3;
 
     // SCR/MPOS constants
     static final int SE_READER_TYPE_INAVLID   = 0;
@@ -487,6 +489,9 @@ public class NfcService implements DeviceHostListener {
     boolean mNotifyDispatchFailed;
     boolean mNotifyReadFailed;
 
+    // for recording the latest Tag object cookie
+    long mCookieUpToDate = 0;
+
     private NfcDispatcher mNfcDispatcher;
     private PowerManager mPowerManager;
     private KeyguardManager mKeyguard;
@@ -684,6 +689,13 @@ public class NfcService implements DeviceHostListener {
         mIsRecovering = true;
         new EnableDisableTask().execute(TASK_DISABLE);
         new EnableDisableTask().execute(TASK_ENABLE);
+    }
+
+    @Override
+    public void notifyCoreGenericError(int errorCode) {
+        if (errorCode == STATE_TXLDO_OVERCURRENT_ERROR ) {
+            sendMessage(NfcService.MSG_TXLDO_OVERCURRENT_RECOVERY, null);
+        }
     }
 
     final class ReaderModeParams {
@@ -2918,6 +2930,25 @@ public class NfcService implements DeviceHostListener {
         public boolean getExtendedLengthApdusSupported() throws RemoteException {
             return mDeviceHost.getExtendedLengthApdusSupported();
         }
+
+        @Override
+        public void setTagUpToDate(long cookie) throws RemoteException {
+            if (DBG) Log.d(TAG, "Register Tag " + Long.toString(cookie) + " as the latest");
+            mCookieUpToDate = cookie;
+        }
+
+        @Override
+        public boolean isTagUpToDate(long cookie) throws RemoteException {
+            if (mCookieUpToDate == cookie) {
+                if (DBG) Log.d(TAG, "Tag " + Long.toString(cookie) + " is up to date");
+                return true;
+            }
+
+            if (DBG) Log.d(TAG, "Tag " + Long.toString(cookie) + " is out of date");
+            // EventLog.writeEvent(0x534e4554, "199291025", -1,
+            //         "The obsolete tag was attempted to be accessed");
+            return false;
+        }
     }
 
     final class NfcDtaService extends INfcDta.Stub {
@@ -4081,6 +4112,9 @@ public class NfcService implements DeviceHostListener {
                case MSG_WLC_DISABLE:
                 mWlc.disable(WlcServiceProxy.PersistStatus.UPDATE);
                 break;
+                case MSG_TXLDO_OVERCURRENT_RECOVERY:
+                    mDeviceHost.restartRFDiscovery();
+                    break;
                default:
                  Log.e(TAG, "Unknown message received");
                  break;
