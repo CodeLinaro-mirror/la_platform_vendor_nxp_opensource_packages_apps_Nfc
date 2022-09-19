@@ -2,7 +2,7 @@
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
- * Copyright (C) 2018-2021 NXP
+ * Copyright (C) 2018-2022 NXP
  * The original Work has been changed by NXP.
  * Copyright (C) 2010 The Android Open Source Project
  *
@@ -590,6 +590,13 @@ public class NativeNfcManager implements DeviceHost {
         return true;
     }
 
+    private native void doRestartRFDiscovery();
+
+    @Override
+    public void restartRFDiscovery() {
+        doRestartRFDiscovery();
+    }
+
     private native boolean doSetNfcSecure(boolean enable);
     @Override
     public boolean setNfcSecure(boolean enable) {
@@ -679,6 +686,10 @@ public class NativeNfcManager implements DeviceHost {
 
     private void notifyHwErrorReported() {
         mListener.onHwErrorReported();
+    }
+
+    private void notifyCoreGenericError(int errorCode) {
+        mListener.notifyCoreGenericError(errorCode);
     }
 
     private void notifyTransactionListeners(byte[] aid, byte[] data, String evtSrc) {
