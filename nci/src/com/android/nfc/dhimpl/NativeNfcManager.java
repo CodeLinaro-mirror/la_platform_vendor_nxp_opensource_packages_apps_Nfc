@@ -749,6 +749,10 @@ public class NativeNfcManager implements DeviceHost {
     @Override
     public native int getFWVersion();
     @Override
+    public native byte[] readerPassThruMode(byte status, byte modulationTyp);
+    @Override
+    public native byte[] transceiveAppData(byte[] data);
+    @Override
     public native boolean isNfccBusy();
     @Override
     public native int setTransitConfig(String configs);
