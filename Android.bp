@@ -3,7 +3,7 @@ package {
 }
 
 genrule {
-   name: "statslog-Nfc-java-gen",
+   name: "statslog-nxp-Nfc-java-gen",
    tools: ["stats-log-api-gen"],
    cmd: "$(location stats-log-api-gen) --java $(out) --module nfc --javaPackage com.android.nfc"
        + " --javaClass NfcStatsLog",
@@ -18,7 +18,7 @@ android_app {
     srcs: [
         "src/**/*.java",
         "nci/**/*.java",
-        ":statslog-Nfc-java-gen",
+        ":statslog-nxp-Nfc-java-gen",
     ],
     uses_libs: ["com.nxp.nfc.nq"],
     platform_apis: true,
@@ -44,7 +44,7 @@ filegroup {
     name: "nqnfc-sources",
     srcs: [
         "src/**/*.java",
-        ":statslog-Nfc-java-gen",
+        ":statslog-nxp-Nfc-java-gen",
     ],
     visibility: [
         "//vendor/nxp/opensource/commonsys/packages/apps/Nfc/tests/unit",
