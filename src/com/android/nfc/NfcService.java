@@ -2100,6 +2100,18 @@ public class NfcService implements DeviceHostListener {
             if (!mIsTagAppPrefSupported) throw new UnsupportedOperationException();
             return setTagAppPreferenceInternal(userId, pkg, allow);
         }
+	@Override
+	public boolean enableReaderOption(boolean enable) {
+            return false;
+        }
+        @Override
+        public boolean isReaderOptionSupported() {
+            return false;
+        }
+        @Override
+        public boolean isReaderOptionEnabled() {
+            return false;
+        }
     }
 
     final class NxpNfcAdapterService extends INxpNfcAdapter.Stub {
