@@ -90,7 +90,7 @@ SecureElement::SecureElement() :
     mActualResponseSize = 0;
     mAtrInfolen = 0;
     mActualNumEe = 0;
-    memset (&mEeInfo, 0, nfcFL.nfccFL._NFA_EE_MAX_EE_SUPPORTED *sizeof(tNFA_EE_INFO));
+    memset (&mEeInfo, 0, MAX_NUM_EE *sizeof(tNFA_EE_INFO));
     memset (mAidForEmptySelect, 0, sizeof(mAidForEmptySelect));
     memset (mVerInfo, 0, sizeof(mVerInfo));
     memset (mAtrInfo, 0, sizeof(mAtrInfo));
@@ -235,6 +235,10 @@ jint SecureElement::getGenericEseId(tNFA_HANDLE handle) {
     else if (handle == (EE_HANDLE_0xF5 & ~NFA_HANDLE_GROUP_EE)) //EUICC - 0xC1
     {
         ret = EUICC_ID;
+    } else if (handle ==
+               (EE_HANDLE_0xF6 & ~NFA_HANDLE_GROUP_EE))  // EUICC - 0xC1
+    {
+        ret = EUICC2_ID;
     }
     LOG(INFO) << StringPrintf("%s: exit; ESE-Generic-ID = 0x%02X", fn, ret);
     return ret;
@@ -967,6 +971,11 @@ jintArray SecureElement::getActiveSecureElementList (JNIEnv* e)
           seId = getGenericEseId(EE_HANDLE_0xF5 & ~NFA_HANDLE_GROUP_EE);
         }
 
+        if (nfcee_handle[i] == EE_HANDLE_0xF6 &&
+            nfcee_status[i] == NFC_NFCEE_STATUS_ACTIVE) {
+          seId = getGenericEseId(EE_HANDLE_0xF6 & ~NFA_HANDLE_GROUP_EE);
+        }
+
         if(nfcee_handle[i] == EE_HANDLE_0xF8 && nfcee_status[i] == NFC_NFCEE_STATUS_ACTIVE)
         {
             seId = getGenericEseId(EE_HANDLE_0xF8 & ~NFA_HANDLE_GROUP_EE);
@@ -1512,6 +1521,8 @@ tNFA_HANDLE SecureElement::getEseHandleFromGenericId(jint eseId)
     else if(eseId == EUICC_ID)
     {
         handle = EE_HANDLE_0xF5; //0x4C1;
+    } else if (eseId == EUICC2_ID) {
+        handle = EE_HANDLE_0xF6;  // 0x4C2;
     }
     LOG(INFO) << StringPrintf("%s: enter; ESE-Handle = 0x%03X", fn, handle);
     return handle;
