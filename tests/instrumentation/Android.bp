@@ -17,7 +17,7 @@ android_test {
         "androidx.test.core",
         "androidx.test.rules",
         "androidx.test.ext.junit",
-        "truth-prebuilt",
+        "truth",
     ],
 
     // Include all test java files.
