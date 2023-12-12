@@ -695,6 +695,41 @@ public class RegisteredServicesCache {
         return success;
     }
 
+    public boolean registerOtherForService(int userId,
+            ComponentName componentName, boolean checked) {
+        if (DEBUG) Log.d(TAG, "[register other] checked:" + checked + ", "  + componentName);
+
+        ArrayList<ApduServiceInfo> newServices = null;
+        boolean success = false;
+
+        synchronized (mLock) {
+
+            Log.d(TAG, "registerOtherForService / ComponentName" + componentName);
+            ApduServiceInfo serviceInfo = getService(userId, componentName);
+
+            if (serviceInfo == null) {
+                Log.e(TAG, "Service " + componentName + "does not exist");
+                return false;
+            }
+
+            success = updateOtherServiceStatus(userId, serviceInfo, checked);
+
+            if (success) {
+                UserServices userService = findOrCreateUserLocked(userId);
+                newServices = new ArrayList<ApduServiceInfo>(userService.services.values());
+            } else {
+                Log.e(TAG, "Fail to other checked");
+            }
+        }
+
+        if (success) {
+            if (DEBUG) Log.d(TAG, "other list update due to User Select " + componentName);
+            mCallback.onServicesUpdated(userId, Collections.unmodifiableList(newServices),false);
+        }
+
+        return success;
+    }
+
     public AidGroup getAidGroupForService(int userId, int uid, ComponentName componentName,
             String category) {
         ApduServiceInfo serviceInfo = getService(userId, componentName);
@@ -750,6 +785,28 @@ public class RegisteredServicesCache {
             mCallback.onServicesUpdated(userId, newServices, true);
         }
         return success;
+    }
+
+    private boolean updateOtherServiceStatus(int userId, ApduServiceInfo service, boolean checked) {
+        // UserServices userServices = findOrCreateUserLocked(userId);
+
+        // OtherServiceStatus status = userServices.others.get(service.getComponent());
+        // This is Error handling code if otherServiceStatus is null
+        // if (status == null) {
+        //     Log.d(TAG, service.getComponent() + " status is could not be null");
+        //     return false;
+        // }
+
+        // if (service.isSelectedOtherService() == checked) {
+        //     Log.d(TAG, "already same status: " + checked);
+        //     return false;
+        // }
+
+        // service.setOtherServiceState(checked);
+        // status.checked = checked;
+
+        // return writeOthersLocked();
+        return false;
     }
 
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
