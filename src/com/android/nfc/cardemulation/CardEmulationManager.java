@@ -703,6 +703,12 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
                     Settings.Secure.NFC_PAYMENT_DEFAULT_COMPONENT);
             return defaultComponent != null ? true : false;
         }
+
+        @Override
+        public boolean setServiceObserveModeDefault(int userId, ComponentName service, boolean enable) {
+	    // TODO Implement me
+            return false;
+        }
     }
 
     /**
