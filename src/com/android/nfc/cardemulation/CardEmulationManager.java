@@ -69,6 +69,9 @@ import java.util.HashMap;
 import com.android.nfc.NfcPermissions;
 import com.android.nfc.NfcService;
 
+
+import com.android.nfc.R;
+
 /**
  * CardEmulationManager is the central entity
  * responsible for delegating to individual components
@@ -685,10 +688,26 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         }
 
         @Override
+        public boolean setServiceEnabledForCategoryOther(int userId,
+                ComponentName app, boolean status) throws RemoteException {
+            if (!mContext.getResources().getBoolean(R.bool.enable_service_for_category_other))
+                return false;
+            NfcPermissions.enforceUserPermissions(mContext);
+
+            return mServiceCache.registerOtherForService(userId, app, status);
+        }
+
+        @Override
         public boolean isDefaultPaymentRegistered() throws RemoteException {
             String defaultComponent = Settings.Secure.getString(mContext.getContentResolver(),
                     Settings.Secure.NFC_PAYMENT_DEFAULT_COMPONENT);
             return defaultComponent != null ? true : false;
+        }
+
+        @Override
+        public boolean setServiceObserveModeDefault(int userId, ComponentName service, boolean enable) {
+	    // TODO Implement me
+            return false;
         }
     }
 
