@@ -709,6 +709,18 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
 	    // TODO Implement me
             return false;
         }
+
+	@Override
+	public boolean overrideRoutingTable(int userHandle, String protocol, String technology) {
+	    // TODO Implement me
+            return false;
+	}
+
+	@Override
+	public boolean recoverRoutingTable(int userHandle) {
+	    // TODO Implement me
+            return false;
+	}
     }
 
     /**

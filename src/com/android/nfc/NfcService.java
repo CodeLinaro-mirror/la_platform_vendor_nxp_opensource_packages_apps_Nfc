@@ -1823,6 +1823,11 @@ public class NfcService implements DeviceHostListener {
         }
 
         @Override
+        public void updateDiscoveryTechnology(IBinder binder, int pollTech, int listenTech)
+                throws RemoteException {
+        }
+
+        @Override
         public void setReaderMode(IBinder binder, IAppCallback callback, int flags, Bundle extras)
                 throws RemoteException {
             boolean privilegedCaller = false;
