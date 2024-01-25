@@ -92,7 +92,7 @@ import android.nfc.TransceiveResult;
 import android.nfc.cardemulation.CardEmulation;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.TagTechnology;
-import android.nfc.WlcLDeviceInfo;
+import android.nfc.WlcListenerDeviceInfo;
 import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Build;
@@ -2157,7 +2157,7 @@ public class NfcService implements DeviceHostListener {
         }
 
         @Override
-        public WlcLDeviceInfo getWlcLDeviceInfo() {
+        public WlcListenerDeviceInfo getWlcListenerDeviceInfo() {
             return null;
         }
 
@@ -2167,7 +2167,7 @@ public class NfcService implements DeviceHostListener {
         }
 
         @Override
-        public boolean enableWlc(boolean enable) {
+        public boolean setWlcEnabled(boolean enable) {
             return false;
         }
     }
