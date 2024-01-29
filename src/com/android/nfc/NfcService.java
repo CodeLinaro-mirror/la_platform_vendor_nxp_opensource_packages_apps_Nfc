@@ -2153,6 +2153,10 @@ public class NfcService implements DeviceHostListener {
         }
 
         @Override
+        public void notifyHceDeactivated() {
+        }
+
+        @Override
         public WlcLDeviceInfo getWlcLDeviceInfo() {
             return null;
         }
