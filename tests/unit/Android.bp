@@ -12,6 +12,8 @@ android_test {
         "android.test.base",
         "android.test.mock",
         "com.nxp.nfc.nq",
+        "framework-nfc.impl",
+        "unsupportedappusage",
     ],
 
     static_libs: [
@@ -35,6 +37,7 @@ android_test {
     srcs: [
       "src/**/*.java",
       ":nqnfc-sources",
+       ":framework-nfc-updatable-sources",
     ],
     uses_libs: ["com.nxp.nfc.nq"],
 
