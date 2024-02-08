@@ -1562,6 +1562,12 @@ public class NfcService implements DeviceHostListener {
     final class NfcAdapterService extends INfcAdapter.Stub {
 
         @Override
+        public boolean isObserveModeEnabled() {
+            // TODO Implement me
+	    return false;
+        }
+
+        @Override
         public boolean isObserveModeSupported() {
           // TODO Implement me
           return false;
