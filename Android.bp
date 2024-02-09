@@ -11,12 +11,18 @@ android_app {
         "src/**/*.java",
         "nci/**/*.java",
         ":statslog-Nfc-java-gen",
+        // Temp hack until NFC APK can link against module_current.
+        ":framework-nfc-updatable-sources",
     ],
     uses_libs: ["com.nxp.nfc.nq"],
     platform_apis: true,
     certificate: "platform",
     jni_libs: ["libsn100nfc_nci_jni"],
-    libs: ["com.nxp.nfc.nq"],
+    libs: [
+      "com.nxp.nfc.nq",
+      "framework-nfc.impl",
+      "unsupportedappusage",
+    ],
     static_libs: [
         "android.se.omapi-V1-java",
         "androidx.annotation_annotation",

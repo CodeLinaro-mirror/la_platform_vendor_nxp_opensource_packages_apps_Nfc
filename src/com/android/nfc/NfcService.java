@@ -39,8 +39,13 @@
  */
 package com.android.nfc;
 
+import android.annotation.CallbackExecutor;
+import android.annotation.FlaggedApi;
+import android.annotation.NonNull;
 import android.app.ActivityManager;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
+import android.annotation.SystemApi;
 import android.app.Application;
 import android.app.BroadcastOptions;
 import android.app.KeyguardManager;
@@ -76,6 +81,7 @@ import android.nfc.INfcDta;
 import android.nfc.INfcFCardEmulation;
 import android.nfc.INfcTag;
 import android.nfc.INfcUnlockHandler;
+import android.nfc.INfcWlcStateListener;
 import android.nfc.ITagRemovedCallback;
 import android.nfc.NdefMessage;
 import android.nfc.NfcAdapter;
@@ -86,6 +92,7 @@ import android.nfc.TransceiveResult;
 import android.nfc.cardemulation.CardEmulation;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.TagTechnology;
+import android.nfc.WlcLDeviceInfo;
 import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Build;
@@ -175,6 +182,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.TimerTask;
 import java.util.Timer;
+import java.util.concurrent.Executor;
 
 public class NfcService implements DeviceHostListener {
     static final boolean DBG = NfcProperties.debug_enabled().orElse(false);
@@ -1555,13 +1563,13 @@ public class NfcService implements DeviceHostListener {
 
         @Override
         public boolean isObserveModeSupported() {
-	  // TODO Implement me
-	  return false;
+          // TODO Implement me
+          return false;
         }
 
         @Override
         public boolean setObserveMode(boolean enable) {
-	  // TODO Implement me
+          // TODO Implement me
           return false;
         }
 
@@ -1812,6 +1820,11 @@ public class NfcService implements DeviceHostListener {
         public void dispatch(Tag tag) throws RemoteException {
             NfcPermissions.enforceAdminPermissions(mContext);
             mNfcDispatcher.dispatchTag(tag);
+        }
+
+        @Override
+        public void updateDiscoveryTechnology(IBinder binder, int pollTech, int listenTech)
+                throws RemoteException {
         }
 
         @Override
@@ -2114,7 +2127,7 @@ public class NfcService implements DeviceHostListener {
             return setTagAppPreferenceInternal(userId, pkg, allow);
         }
 	@Override
-	public boolean enableReaderOption(boolean enable) {
+        public boolean enableReaderOption(boolean enable) {
             return false;
         }
         @Override
@@ -2123,6 +2136,38 @@ public class NfcService implements DeviceHostListener {
         }
         @Override
         public boolean isReaderOptionEnabled() {
+            return false;
+        }
+        @Override
+        public void registerWlcStateListener(
+            INfcWlcStateListener listener) throws RemoteException {
+        }
+
+        @Override
+        public void unregisterWlcStateListener(
+            INfcWlcStateListener listener) throws RemoteException {
+        }
+
+        @Override
+        public void notifyPollingLoop(Bundle frame) {
+        }
+
+        @Override
+        public void notifyHceDeactivated() {
+        }
+
+        @Override
+        public WlcLDeviceInfo getWlcLDeviceInfo() {
+            return null;
+        }
+
+        @Override
+        public boolean isWlcEnabled() throws RemoteException {
+            return false;
+        }
+
+        @Override
+        public boolean enableWlc(boolean enable) {
             return false;
         }
     }
