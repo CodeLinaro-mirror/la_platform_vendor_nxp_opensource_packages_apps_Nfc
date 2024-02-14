@@ -81,6 +81,7 @@ import android.nfc.INfcDta;
 import android.nfc.INfcFCardEmulation;
 import android.nfc.INfcTag;
 import android.nfc.INfcUnlockHandler;
+import android.nfc.INfcVendorNciCallback;
 import android.nfc.INfcWlcStateListener;
 import android.nfc.ITagRemovedCallback;
 import android.nfc.NdefMessage;
@@ -1574,6 +1575,25 @@ public class NfcService implements DeviceHostListener {
         }
 
         @Override
+        public void registerVendorExtensionCallback(INfcVendorNciCallback callbacks)
+                throws RemoteException {
+            // TODO Implement me
+        }
+
+        @Override
+        public void unregisterVendorExtensionCallback(INfcVendorNciCallback callbacks)
+                throws RemoteException {
+            // TODO Implement me
+        }
+
+        @Override
+        public synchronized int sendVendorNciMessage(int mt, int gid, int oid, byte[] payload)
+                throws RemoteException {
+            // TODO Implement me
+	    return 0;
+	}
+
+	@Override
         public boolean enable() throws RemoteException {
             NfcPermissions.enforceAdminPermissions(mContext);
 
