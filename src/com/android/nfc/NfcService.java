@@ -81,6 +81,7 @@ import android.nfc.INfcDta;
 import android.nfc.INfcFCardEmulation;
 import android.nfc.INfcTag;
 import android.nfc.INfcUnlockHandler;
+import android.nfc.INfcVendorNciCallback;
 import android.nfc.INfcWlcStateListener;
 import android.nfc.ITagRemovedCallback;
 import android.nfc.NdefMessage;
@@ -92,7 +93,7 @@ import android.nfc.TransceiveResult;
 import android.nfc.cardemulation.CardEmulation;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.TagTechnology;
-import android.nfc.WlcLDeviceInfo;
+import android.nfc.WlcListenerDeviceInfo;
 import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Build;
@@ -1562,6 +1563,12 @@ public class NfcService implements DeviceHostListener {
     final class NfcAdapterService extends INfcAdapter.Stub {
 
         @Override
+        public boolean isObserveModeEnabled() {
+            // TODO Implement me
+	    return false;
+        }
+
+        @Override
         public boolean isObserveModeSupported() {
           // TODO Implement me
           return false;
@@ -1574,6 +1581,25 @@ public class NfcService implements DeviceHostListener {
         }
 
         @Override
+        public void registerVendorExtensionCallback(INfcVendorNciCallback callbacks)
+                throws RemoteException {
+            // TODO Implement me
+        }
+
+        @Override
+        public void unregisterVendorExtensionCallback(INfcVendorNciCallback callbacks)
+                throws RemoteException {
+            // TODO Implement me
+        }
+
+        @Override
+        public synchronized int sendVendorNciMessage(int mt, int gid, int oid, byte[] payload)
+                throws RemoteException {
+            // TODO Implement me
+	    return 0;
+	}
+
+	@Override
         public boolean enable() throws RemoteException {
             NfcPermissions.enforceAdminPermissions(mContext);
 
@@ -2157,7 +2183,7 @@ public class NfcService implements DeviceHostListener {
         }
 
         @Override
-        public WlcLDeviceInfo getWlcLDeviceInfo() {
+        public WlcListenerDeviceInfo getWlcListenerDeviceInfo() {
             return null;
         }
 
@@ -2167,7 +2193,7 @@ public class NfcService implements DeviceHostListener {
         }
 
         @Override
-        public boolean enableWlc(boolean enable) {
+        public boolean setWlcEnabled(boolean enable) {
             return false;
         }
     }
