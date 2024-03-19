@@ -34,6 +34,8 @@
 #define NFA_EE_TAG_HCI_HOST_ID 0xA0 /* HCI host ID */
 #define SMX_ESE_PIPE_ID 0x19
 #define SMX_EUICC_PIPE_ID 0x27
+#define SMB_DPD_MONITOR_EVT_MASK 0x04
+#define DPD_MONITOR_BYTE_OFFSET 2
 #if (NXP_EXTNS == TRUE)
 typedef enum {
   UICC_01_SELECTED_ENABLED = 0x01,
@@ -470,16 +472,6 @@ public:
  **
  *******************************************************************************/
  tNFA_HANDLE getActiveEeHandle(tNFA_HANDLE eeHandle = EE_HANDLE_0xF3);
- /*******************************************************************************
- **
- ** Function         getLastRfFiledToggleTime
- **
- ** Description      Provides the last RF filed toggile timer
- **
- ** Returns          timespec
- **
- *******************************************************************************/
- struct timespec getLastRfFiledToggleTime(void);
  /*******************************************************************************
  **
  ** Function         setNfccPwrConfig

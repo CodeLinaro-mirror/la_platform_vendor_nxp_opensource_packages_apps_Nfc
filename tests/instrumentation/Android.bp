@@ -22,7 +22,7 @@ android_test {
 
     // Include all test java files.
     srcs: [
-      "src/**/*.java",
+        "src/**/*.java",
     ],
 
     platform_apis: true,
