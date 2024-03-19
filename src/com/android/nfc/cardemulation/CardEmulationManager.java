@@ -39,6 +39,8 @@ import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.List;
 
+import android.annotation.TargetApi;
+import android.annotation.FlaggedApi;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
@@ -572,7 +574,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         }
 
         @Override
-        public boolean setServiceObserveModeDefault(int userId,
+        public boolean setDefaultToObserveModeForService(int userId,
             ComponentName service, boolean enable) {
             NfcPermissions.validateUserId(userId);
             if (!isServiceRegistered(userId, service)) {
@@ -597,6 +599,21 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
             NfcService.getInstance().onPreferredPaymentChanged(
                     NfcAdapter.PREFERRED_PAYMENT_UPDATED);
             return true;
+        }
+
+        @Override
+        @TargetApi(35)
+        @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
+        public boolean registerPollingLoopFilterForService(int userId,
+                ComponentName service, String pollingLoopFilter) throws RemoteException {
+            NfcPermissions.validateUserId(userId);
+            NfcPermissions.enforceUserPermissions(mContext);
+            if (!isServiceRegistered(userId, service)) {
+                Log.e(TAG, "service ("+ service + ") isn't registed for user " + userId);
+                return false;
+            }
+            return mServiceCache.registerPollingLoopFilterForService(userId, Binder.getCallingUid(),
+            service, pollingLoopFilter);
         }
 
         @Override
@@ -720,6 +737,18 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
                     Constants.SETTINGS_SECURE_NFC_PAYMENT_DEFAULT_COMPONENT);
             return defaultComponent != null ? true : false;
         }
+
+	@Override
+	public boolean overrideRoutingTable(int userHandle, String protocol, String technology) {
+	    // TODO Implement me
+            return false;
+	}
+
+	@Override
+	public boolean recoverRoutingTable(int userHandle) {
+	    // TODO Implement me
+            return false;
+	}
     }
 
     /**

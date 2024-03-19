@@ -461,7 +461,7 @@ public class HostEmulationManager {
         }
         Message msg = Message.obtain(null, HostApduService.MSG_POLLING_LOOP);
         Bundle msgData = new Bundle();
-        msgData.putParcelableArrayList(HostApduService.POLLING_LOOP_FRAMES_BUNDLE_KEY, frames);
+        msgData.putParcelableArrayList(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE, frames);
         msg.setData(msgData);
         msg.replyTo = mMessenger;
         mState = STATE_POLLING_LOOP;

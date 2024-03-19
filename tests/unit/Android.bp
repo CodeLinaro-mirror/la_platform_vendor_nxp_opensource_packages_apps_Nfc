@@ -25,7 +25,7 @@ android_test {
         "androidx.annotation_annotation",
         "androidx.appcompat_appcompat",
         "com.google.android.material_material",
-        "nfc_flags_lib",
+        "nqnfc_flags_lib",
         "flag-junit",
         "platform-test-annotations",
     ],

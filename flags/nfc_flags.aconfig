@@ -1,4 +1,4 @@
-package: "com.android.nfc.flags"
+package: "com.android.nfc.nqflags"
 
 flag {
     name: "test_flag"

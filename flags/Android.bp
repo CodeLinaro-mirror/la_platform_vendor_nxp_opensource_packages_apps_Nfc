@@ -19,29 +19,29 @@ package {
 }
 
 aconfig_declarations {
-    name: "nfc_aconfig_flags",
-    package: "com.android.nfc.flags",
+    name: "nqnfc_aconfig_flags",
+    package: "com.android.nfc.nqflags",
     srcs: ["nfc_flags.aconfig"],
 }
 
 java_aconfig_library {
-    name: "nfc_aconfig_flags_lib",
+    name: "nqnfc_aconfig_flags_lib",
     aconfig_declarations: "nfc_aconfig_flags",
     min_sdk_version: "33",
 }
 
 java_library {
-    name: "nfc_flags_lib",
+    name: "nqnfc_flags_lib",
     sdk_version: "system_current",
     min_sdk_version: "33",
     srcs: [
         "lib/**/*.java",
     ],
     static_libs: [
-        "nfc_aconfig_flags_lib",
+        "nqnfc_aconfig_flags_lib",
     ],
     installable: false,
     visibility: [
-        "//packages/apps/Nfc:__subpackages__",
+        "//vendor/nxp/opensource/commonsys/packages/apps/Nfc:__subpackages__",
     ],
 }

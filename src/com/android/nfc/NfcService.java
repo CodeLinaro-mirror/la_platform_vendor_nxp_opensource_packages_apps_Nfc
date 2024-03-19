@@ -85,6 +85,8 @@ import android.nfc.INfcDta;
 import android.nfc.INfcFCardEmulation;
 import android.nfc.INfcTag;
 import android.nfc.INfcUnlockHandler;
+import android.nfc.INfcVendorNciCallback;
+import android.nfc.INfcWlcStateListener;
 import android.nfc.ITagRemovedCallback;
 import android.nfc.NdefMessage;
 import android.nfc.NfcAdapter;
@@ -94,6 +96,7 @@ import android.nfc.TechListParcel;
 import android.nfc.TransceiveResult;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.TagTechnology;
+import android.nfc.WlcListenerDeviceInfo;
 import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Build;
@@ -180,6 +183,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.TimerTask;
 import java.util.Timer;
+import java.util.concurrent.Executor;
 
 public class NfcService implements DeviceHostListener, ForegroundUtils.Callback {
     static final boolean DBG = NfcProperties.debug_enabled().orElse(false);
@@ -718,6 +722,13 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         mIsRecovering = true;
         new EnableDisableTask().execute(TASK_DISABLE);
         new EnableDisableTask().execute(TASK_ENABLE);
+    }
+
+    /** TZ Secure Zone Notification to Disable NFC **/
+    @Override
+    public void onTZNfcSecureZoneReported() {
+        if (DBG) Log.d(TAG, "onTZNfcSecureZoneReported() - Disbaling NFC Service");
+        new EnableDisableTask().execute(TASK_DISABLE);
     }
 
     @Override
@@ -1660,7 +1671,33 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     }
 
     final class NfcAdapterService extends INfcAdapter.Stub {
+
         @Override
+        public boolean isObserveModeEnabled() {
+            // TODO Implement me
+	    return false;
+        }
+
+        @Override
+        public void registerVendorExtensionCallback(INfcVendorNciCallback callbacks)
+                throws RemoteException {
+            // TODO Implement me
+        }
+
+        @Override
+        public void unregisterVendorExtensionCallback(INfcVendorNciCallback callbacks)
+                throws RemoteException {
+            // TODO Implement me
+        }
+
+        @Override
+        public synchronized int sendVendorNciMessage(int mt, int gid, int oid, byte[] payload)
+                throws RemoteException {
+            // TODO Implement me
+	    return 0;
+	}
+
+	@Override
         public boolean enable() throws RemoteException {
             NfcPermissions.enforceAdminPermissions(mContext);
 
@@ -1948,6 +1985,11 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         public void dispatch(Tag tag) throws RemoteException {
             NfcPermissions.enforceAdminPermissions(mContext);
             mNfcDispatcher.dispatchTag(tag);
+        }
+
+        @Override
+        public void updateDiscoveryTechnology(IBinder binder, int pollTech, int listenTech)
+                throws RemoteException {
         }
 
         @Override
@@ -2287,6 +2329,38 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         @Override
         public boolean isReaderOptionEnabled() {
             return mIsReaderOptionEnabled;
+        }
+        @Override
+        public void registerWlcStateListener(
+            INfcWlcStateListener listener) throws RemoteException {
+        }
+
+        @Override
+        public void unregisterWlcStateListener(
+            INfcWlcStateListener listener) throws RemoteException {
+        }
+
+        @Override
+        public void notifyPollingLoop(Bundle frame) {
+        }
+
+        @Override
+        public void notifyHceDeactivated() {
+        }
+
+        @Override
+        public WlcListenerDeviceInfo getWlcListenerDeviceInfo() {
+            return null;
+        }
+
+        @Override
+        public boolean isWlcEnabled() throws RemoteException {
+            return false;
+        }
+
+        @Override
+        public boolean setWlcEnabled(boolean enable) {
+            return false;
         }
     }
 
