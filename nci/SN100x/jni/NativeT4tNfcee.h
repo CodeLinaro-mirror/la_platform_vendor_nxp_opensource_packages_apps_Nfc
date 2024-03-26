@@ -20,6 +20,7 @@
 #include "SyncEvent.h"
 #include "nfa_api.h"
 #include <nativehelper/ScopedLocalRef.h>
+#include <vector>
 #define t4tNfcEe (NativeT4tNfcee::getInstance())
 
 typedef enum { OP_READ = 0, OP_WRITE, OP_LOCK, OP_CLEAR } T4TNFCEE_OPERATIONS_t;
@@ -281,7 +282,7 @@ class NativeT4tNfcee {
   tNFA_RX_DATA mReadData;
   tNFA_STATUS mT4tOpStatus = NFA_STATUS_FAILED;
   tNFA_STATUS mT4tNfcEeEventStat = NFA_STATUS_FAILED;
-  std::basic_string<uint8_t> sRxDataBuffer;
+  std::vector<uint8_t> sRxDataBuffer;
   NativeT4tNfcee();
 
   /*******************************************************************************

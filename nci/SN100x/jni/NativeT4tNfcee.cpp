@@ -501,7 +501,7 @@ void NativeT4tNfcee::t4tReadComplete(tNFA_STATUS status, tNFA_RX_DATA data) {
   mT4tOpStatus = status;
   if (status == NFA_STATUS_OK) {
     if(data.len > 0) {
-      sRxDataBuffer.append(data.p_data, data.len);
+      sRxDataBuffer.insert(sRxDataBuffer.end(), data.p_data, data.p_data + data.len);
       DLOG_IF(INFO, nfc_debug_enabled)
         << StringPrintf("%s: Read Data len new: %d ", __func__, data.len);
     }
