@@ -1,0 +1,100 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_library_shared {
+    name: "libsn100nfc_nci_jni",
+    system_ext_specific: true,
+
+    cflags:
+     ["-DNXP_EXTNS=TRUE",
+      "-DNXP_SRD=TRUE",]  + [
+      "-DNXP_QTAG=TRUE",]  + [
+      "-DFEATURE_SECURE_READER",
+        "-Wall",
+        "-Wextra",
+        "-Wno-unused-parameter",
+        "-Werror",
+        "-fexceptions",
+    ],
+    srcs: ["**/*.cpp"],
+    exclude_srcs: ["NfcTagTest.cpp"],
+
+    include_dirs: [
+        "external/libxml2/include",
+        "frameworks/native/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/nfa/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/nfc/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/gki/ulinux",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/gki/common",
+    ] + ["vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/utils/include"],
+
+    shared_libs: [
+        "libnativehelper",
+        "libcutils",
+        "libutils",
+        "liblog",
+        "libsn100nfc-nci",
+        "libchrome",
+        "libbase",
+        "libstatslog_nfc",
+        "vendor.nxp.hardware.nfc@2.0",
+    ],
+    product_variables: {
+        debuggable: {
+            cflags: [
+                "-DDCHECK_ALWAYS_ON",
+                "-DDTA_ENABLED"
+            ],
+        },
+    },
+
+    static_libs: [
+        "android_nfc_flags_aconfig_c_lib",
+        "server_configurable_flags",
+        "libxml2"
+    ],
+
+    sanitize: {
+        cfi: true,
+        integer_overflow: true,
+        misc_undefined: ["bounds"],
+        scs: true,
+    },
+    apex_available: [
+         "//apex_available:platform",
+         "com.android.nfcservices"
+    ],
+}
+
+cc_test {
+    name: "nqnfc.nci.jni.tests",
+
+    srcs: ["NfcTagTest.cpp"],
+
+    shared_libs: [
+        "libsn100nfc-nci",
+        "libsn100nfc_nci_jni",
+        "libstatslog_nfc",
+    ],
+
+    static_libs: [
+        "libgmock",
+        "libgtest",
+    ],
+
+    header_libs: [
+        "jni_headers"
+    ],
+
+    include_dirs: [
+        "vendor/nxp/opensource/commonsys/packages/apps/Nfc/nci/SN100x/jni",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/gki/common",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/gki/ulinux",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/nfa/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/nfc/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/utils/include",
+    ],
+}

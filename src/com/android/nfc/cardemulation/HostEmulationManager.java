@@ -59,6 +59,8 @@ import android.sysprop.NfcProperties;
 import android.util.Log;
 import android.util.proto.ProtoOutputStream;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.nfc.NfcService;
 import com.android.nfc.NfcStatsLog;
 import com.android.nfc.cardemulation.RegisteredAidCache.AidResolveInfo;
@@ -173,7 +175,9 @@ public class HostEmulationManager {
 
     public void onPollingLoopDetected(Bundle pollingFrame) {
         synchronized (mLock) {
-            mState = STATE_POLLING_LOOP;
+            if (mState == STATE_IDLE) {
+                mState = STATE_POLLING_LOOP;
+            }
             Messenger service = getForegroundServiceOrDefault();
             if (service != null) {
                 ArrayList<Bundle> frames = new ArrayList<Bundle>();
@@ -464,7 +468,9 @@ public class HostEmulationManager {
         msgData.putParcelableArrayList(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE, frames);
         msg.setData(msgData);
         msg.replyTo = mMessenger;
-        mState = STATE_POLLING_LOOP;
+        if (mState == STATE_IDLE) {
+            mState = STATE_POLLING_LOOP;
+        }
         try {
             mActiveService.send(msg);
         } catch (RemoteException e) {
@@ -716,5 +722,23 @@ public class HostEmulationManager {
             Utils.dumpDebugComponentName(
                     mServiceName, proto, HostEmulationManagerProto.SERVICE_NAME);
         }
+    }
+
+    @VisibleForTesting
+    public ServiceConnection getServiceConnection(){
+        return mConnection;
+    }
+
+    @VisibleForTesting
+    public IBinder getMessenger(){
+        if (mActiveService != null) {
+            return mActiveService.getBinder();
+        }
+        return null;
+    }
+
+    @VisibleForTesting
+    public int getState(){
+        return mState;
     }
 }

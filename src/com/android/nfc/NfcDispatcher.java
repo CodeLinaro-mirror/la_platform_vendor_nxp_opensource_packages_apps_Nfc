@@ -72,6 +72,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 /**
  * Dispatch of NFC events to start activities
@@ -257,8 +258,11 @@ class NfcDispatcher {
             boolean status = false;
             List<UserHandle> luh = getCurrentActiveUserHandles();
             for (UserHandle uh : luh) {
-                if (packageManager.queryIntentActivitiesAsUser(intent,
-                        ResolveInfoFlags.of(0), uh).size() > 0) {
+                List<ResolveInfo> activities = packageManager.queryIntentActivitiesAsUser(intent,
+                        ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY), uh);
+                activities = activities.stream().filter(activity -> activity.activityInfo.exported)
+                        .collect(Collectors.toList());
+                if (activities.size() > 0) {
                     status = true;
                 }
             }
@@ -327,7 +331,10 @@ class NfcDispatcher {
             // result of off that.
             // try current user if there is an Activity to handle this intent
             List<ResolveInfo> activities = packageManager.queryIntentActivitiesAsUser(intent,
-                    ResolveInfoFlags.of(0), UserHandle.of(ActivityManager.getCurrentUser()));
+                    ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY),
+                    UserHandle.of(ActivityManager.getCurrentUser()));
+            activities = activities.stream().filter(activity -> activity.activityInfo.exported)
+                    .collect(Collectors.toList());
             if (mIsTagAppPrefSupported) {
                 activities = checkPrefList(activities, ActivityManager.getCurrentUser());
             }
@@ -352,9 +359,12 @@ class NfcDispatcher {
             }
             // try other users when there is no Activity in current user to handle this intent
             List<UserHandle> userHandles = getCurrentActiveUserHandles();
+            userHandles.remove(UserHandle.of(ActivityManager.getCurrentUser()));
             for (UserHandle uh : userHandles) {
                 activities = packageManager.queryIntentActivitiesAsUser(intent,
-                        ResolveInfoFlags.of(0), uh);
+                        ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY), uh);
+                activities = activities.stream().filter(activity -> activity.activityInfo.exported)
+                        .collect(Collectors.toList());
                 if (mIsTagAppPrefSupported) {
                     activities = checkPrefList(activities, uh.getIdentifier());
                 }
@@ -384,7 +394,10 @@ class NfcDispatcher {
         boolean tryStartActivity(Intent intentToStart) {
             // try current user if there is an Activity to handle this intent
             List<ResolveInfo> activities = packageManager.queryIntentActivitiesAsUser(
-                    intentToStart, 0, UserHandle.of(ActivityManager.getCurrentUser()));
+                    intentToStart, ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY),
+                    UserHandle.of(ActivityManager.getCurrentUser()));
+            activities = activities.stream().filter(activity -> activity.activityInfo.exported)
+                    .collect(Collectors.toList());
             if (activities.size() > 0) {
                 if (DBG) Log.d(TAG, "tryStartActivity(Intent) currentUser");
                 rootIntent.putExtra(NfcRootActivity.EXTRA_LAUNCH_INTENT, intentToStart);
@@ -404,9 +417,12 @@ class NfcDispatcher {
             }
             // try other users when there is no Activity in current user to handle this intent
             List<UserHandle> userHandles = getCurrentActiveUserHandles();
+            userHandles.remove(UserHandle.of(ActivityManager.getCurrentUser()));
             for (UserHandle uh : userHandles) {
                 activities = packageManager.queryIntentActivitiesAsUser(intentToStart,
-                        ResolveInfoFlags.of(0), uh);
+                        ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY), uh);
+                activities = activities.stream().filter(activity -> activity.activityInfo.exported)
+                        .collect(Collectors.toList());
                 if (mIsTagAppPrefSupported) {
                     activities = checkPrefList(activities, uh.getIdentifier());
                 }
@@ -896,7 +912,6 @@ class NfcDispatcher {
 
     public boolean tryPeripheralHandover(NdefMessage m, Tag tag) {
         if (m == null || !mDeviceSupportsBluetooth) return false;
-
         if (DBG) Log.d(TAG, "tryHandover(): " + m.toString());
 
         HandoverDataParser.BluetoothHandoverData handover = mHandoverDataParser.parseBluetooth(m);

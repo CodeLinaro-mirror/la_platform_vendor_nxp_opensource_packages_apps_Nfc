@@ -36,7 +36,6 @@ package com.android.nfc.dhimpl;
 
 import android.content.Context;
 import android.nfc.cardemulation.HostApduService;
-import android.nfc.cardemulation.PollingFrame;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.TagTechnology;
 import android.os.Bundle;
@@ -44,14 +43,11 @@ import android.util.Log;
 import com.android.nfc.DeviceHost;
 import com.android.nfc.NfcDiscoveryParameters;
 import java.io.FileDescriptor;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
-import android.os.SystemProperties;
-
-import android.os.RemoteException;
-import java.util.NoSuchElementException;
-import vendor.nxp.hardware.nfc.V2_0.INqNfc;
 
 /** Native interface to the NFC Manager functions */
 public class NativeNfcManager implements DeviceHost {
@@ -220,6 +216,13 @@ public class NativeNfcManager implements DeviceHost {
         doFactoryReset();
     }
 
+    private native boolean doSetPowerSavingMode(boolean flag);
+
+    @Override
+    public boolean setPowerSavingMode(boolean flag) {
+        return doSetPowerSavingMode(flag);
+    }
+
     private native boolean doSetULPDetMode(boolean flag);
 
     @Override
@@ -261,13 +264,6 @@ public class NativeNfcManager implements DeviceHost {
 
     @Override
     public native boolean sendRawFrame(byte[] data);
-
-    public native boolean doClearRoutingEntry(int type );
-
-    @Override
-    public boolean clearRoutingEntry( int type ) {
-        return(doClearRoutingEntry( type ));
-    }
 
     public native boolean doSetRoutingEntry(int type, int value, int route, int power);
     @Override
@@ -313,9 +309,6 @@ public class NativeNfcManager implements DeviceHost {
 
     @Override
     public native boolean commitRouting();
-
-    @Override
-    public native int doChangeDiscoveryTech(int pollTech, int listenTech);
 
     @Override
     public native void setEmptyAidRoute(int deafultAidroute);
@@ -667,15 +660,15 @@ public class NativeNfcManager implements DeviceHost {
         Bundle frame = new Bundle();
         final int header_len = 2;
         int pos = header_len;
-        final int TLV_type_offset = 0;
-        final int TLV_len_offset = 1;
-        final int TLV_timestamp_offset = 2;
-        final int TLV_gain_offset = 6;
-        final int TLV_data_offset = 7;
+        final int TLV_len_offset = 0;
+        final int TLV_type_offset = 2;
+        final int TLV_timestamp_offset = 3;
+        final int TLV_gain_offset = 7;
+        final int TLV_data_offset = 8;
         while (pos + TLV_len_offset < data_len) {
         int type = p_data[pos + TLV_type_offset];
         int length = p_data[pos + TLV_len_offset];
-        if (pos + length + 2 > data_len) {
+        if (pos + length + 1 > data_len) {
             // Frame is bigger than buffer.
             Log.e(TAG, "Polling frame data is longer than buffer data length.");
             break;
@@ -683,29 +676,29 @@ public class NativeNfcManager implements DeviceHost {
         switch (type) {
             case TAG_FIELD_CHANGE:
                 frame.putChar(
-                    PollingFrame.KEY_POLLING_LOOP_TYPE,
+                    HostApduService.POLLING_LOOP_TYPE_KEY,
                     p_data[pos + TLV_data_offset] != 0x00
-                        ? (char)PollingFrame.POLLING_LOOP_TYPE_ON
-                        : (char)PollingFrame.POLLING_LOOP_TYPE_OFF);
+                        ? HostApduService.POLLING_LOOP_TYPE_ON
+                        : HostApduService.POLLING_LOOP_TYPE_OFF);
                 break;
             case TAG_NFC_A:
-                frame.putChar(PollingFrame.KEY_POLLING_LOOP_TYPE,
-                    (char)PollingFrame.POLLING_LOOP_TYPE_A);
+                frame.putChar(HostApduService.POLLING_LOOP_TYPE_KEY,
+                    HostApduService.POLLING_LOOP_TYPE_A);
                 break;
             case TAG_NFC_B:
-                frame.putChar(PollingFrame.KEY_POLLING_LOOP_TYPE,
-                    (char)PollingFrame.POLLING_LOOP_TYPE_B);
+                frame.putChar(HostApduService.POLLING_LOOP_TYPE_KEY,
+                    HostApduService.POLLING_LOOP_TYPE_B);
                 break;
             case TAG_NFC_F:
-                frame.putChar(PollingFrame.KEY_POLLING_LOOP_TYPE,
-                    (char)PollingFrame.POLLING_LOOP_TYPE_F);
+                frame.putChar(HostApduService.POLLING_LOOP_TYPE_KEY,
+                    HostApduService.POLLING_LOOP_TYPE_F);
                 break;
             case TAG_NFC_UNKNOWN:
                 frame.putChar(
-                    PollingFrame.KEY_POLLING_LOOP_TYPE,
-                    (char)PollingFrame.POLLING_LOOP_TYPE_UNKNOWN);
+                    HostApduService.POLLING_LOOP_TYPE_KEY,
+                    HostApduService.POLLING_LOOP_TYPE_UNKNOWN);
                 frame.putByteArray(
-                    PollingFrame.KEY_POLLING_LOOP_DATA,
+                    HostApduService.POLLING_LOOP_DATA_KEY,
                     Arrays.copyOfRange(
                         p_data, pos + TLV_data_offset, pos + TLV_timestamp_offset + length));
                 break;
@@ -714,20 +707,31 @@ public class NativeNfcManager implements DeviceHost {
         }
         if (pos + TLV_gain_offset <= data_len) {
             byte gain = p_data[pos + TLV_gain_offset];
-            frame.putByte(PollingFrame.KEY_POLLING_LOOP_GAIN, gain);
+            frame.putByte(HostApduService.POLLING_LOOP_GAIN_KEY, gain);
         }
         if (pos + TLV_timestamp_offset + 3 < data_len) {
-            long timestamp =
-                ((long) p_data[pos + TLV_timestamp_offset] << 24L) |
-                ((long) p_data[pos + TLV_timestamp_offset + 1] << 16L) |
-                ((long) p_data[pos + TLV_timestamp_offset + 2] << 8L) |
-                ((long) p_data[pos + TLV_timestamp_offset + 3]);
-            frame.putLong(PollingFrame.KEY_POLLING_LOOP_TIMESTAMP, timestamp);
+            int timestamp = ByteBuffer.wrap(p_data, pos + TLV_timestamp_offset, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+            frame.putInt(HostApduService.POLLING_LOOP_TIMESTAMP_KEY, timestamp);
         }
         pos += (length + 2);
         }
         mListener.onPollingLoopDetected(frame);
     }
+
+    @Override
+    public native void setDiscoveryTech(int pollTech, int listenTech);
+
+    @Override
+    public native void resetDiscoveryTech();
+
+    @Override
+    public native void clearRoutingEntry(int clearFlags);
+
+    @Override
+    public native void setIsoDepProtocolRoute(int route);
+
+    @Override
+    public native void setTechnologyABRoute(int route);
 
     /**
      * Notifies Tag abort operation
