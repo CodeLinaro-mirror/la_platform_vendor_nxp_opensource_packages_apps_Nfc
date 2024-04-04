@@ -32,6 +32,14 @@
  *  Copyright 2018-2024 NXP
  *
  ******************************************************************************/
+/******************************************************************************
+ *
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
+ ******************************************************************************/
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <cutils/properties.h>
@@ -1165,6 +1173,26 @@ if (!sP2pActive && eventData->rf_field.status == NFA_STATUS_OK) {
                         eventData->status);
     } break;
 #endif
+
+    case NFA_DM_TZ_SECURE_ZONE_DISABLE_NFC_EVT:/*TZ Secure Zone entry event to Disable NFC*/ {
+      LOG(DEBUG)
+          << StringPrintf("%s: NFA_DM_TZ_SECURE_ZONE_DISABLE_NFC_EVT; received from TZ and disabling NFC", __func__);
+      struct nfc_jni_native_data* nat = getNative(NULL, NULL);
+      JNIEnv* t = NULL;
+      ScopedAttach attach(nat->vm, &t);
+      if (t == NULL) {
+        LOG(ERROR) << StringPrintf("%s; jni env is null, crashing NFC service", __func__);
+        PowerSwitch::getInstance().initialize(PowerSwitch::UNKNOWN_LEVEL);
+        //////////////////////////////////////////////
+        // crash the NFC service process so it can restart automatically
+        abort();
+        //////////////////////////////////////////////
+      } else {
+        t->CallVoidMethod(nat->manager,
+                               android::gCachedNfcManagerNotifyTZNfcSecureZoneReported);
+      }
+    } break;
+
     default:
       LOG(DEBUG) << StringPrintf("%s: unhandled event", __func__);
       break;

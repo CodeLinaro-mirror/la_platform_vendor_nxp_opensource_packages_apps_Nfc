@@ -23,12 +23,13 @@ cc_library_shared {
     include_dirs: [
         "external/libxml2/include",
         "frameworks/native/include",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/include",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/nfa/include",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/nfc/include",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/gki/ulinux",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/gki/common",
-    ] + ["vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/utils/include"],
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/tools/casimir",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/nfa/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/nfc/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/gki/ulinux",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/gki/common",
+    ] + ["vendor/nxp/opensource/commonsys/external/libnfc-nci/utils/include"],
 
     shared_libs: [
         "libnativehelper",
@@ -36,7 +37,6 @@ cc_library_shared {
         "libutils",
         "liblog",
         "libsn100nfc-nci",
-        "libchrome",
         "libbase",
         "libstatslog_nfc",
         "vendor.nxp.hardware.nfc@2.0",
@@ -89,12 +89,13 @@ cc_test {
     ],
 
     include_dirs: [
-        "vendor/nxp/opensource/commonsys/packages/apps/Nfc/nci/SN100x/jni",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/include",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/gki/common",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/gki/ulinux",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/nfa/include",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/nfc/include",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/utils/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/tools/casimir",
+        "vendor/nxp/opensource/commonsys/packages/apps/Nfc/nci/jni",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/gki/common",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/gki/ulinux",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/nfa/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/nfc/include",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/utils/include",
     ],
 }

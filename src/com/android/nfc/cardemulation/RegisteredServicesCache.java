@@ -34,6 +34,8 @@
 ******************************************************************************/
 package com.android.nfc.cardemulation;
 
+import android.annotation.TargetApi;
+import android.annotation.FlaggedApi;
 import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -896,6 +898,40 @@ public class RegisteredServicesCache {
         return true;
     }
 
+    @TargetApi(35)
+    @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
+    public boolean registerPollingLoopFilterForService(int userId, int uid,
+            ComponentName componentName, String pollingLoopFilter,
+	    boolean autoTransact) {
+//        ArrayList<ApduServiceInfo> newServices = null;
+//        synchronized (mLock) {
+//            UserServices services = findOrCreateUserLocked(userId);
+//            // Check if we can find this service
+//            ApduServiceInfo serviceInfo = getService(userId, componentName);
+//            if (serviceInfo == null) {
+//                Log.e(TAG, "Service " + componentName + " does not exist.");
+//                return false;
+//            }
+//            if (serviceInfo.getUid() != uid) {
+//                // This is probably a good indication something is wrong here.
+//                // Either newer service installed with different uid (but then
+//                // we should have known about it), or somebody calling us from
+//                // a different uid.
+//                Log.e(TAG, "UID mismatch.");
+//                return false;
+//            }
+//            if (!CardEmulation.isValidPollingLoopFilter(pollingLoopFilter)) {
+//                Log.e(TAG, "invalid polling loop filter");
+//                return false;
+//            }
+//            serviceInfo.addPollingLoopFilter(pollingLoopFilter, autoTransact);
+//            newServices = new ArrayList<ApduServiceInfo>(services.services.values());
+//        }
+//        mCallback.onServicesUpdated(userId, newServices, true);
+//        return true;
+          return false;
+    }
+
     public boolean registerAidGroupForService(int userId, int uid,
             ComponentName componentName, AidGroup aidGroup) {
         ArrayList<ApduServiceInfo> newServices = null;
@@ -1049,24 +1085,25 @@ public class RegisteredServicesCache {
     }
 
     private boolean updateOtherServiceStatus(int userId, ApduServiceInfo service, boolean checked) {
-        UserServices userServices = findOrCreateUserLocked(userId);
+        // UserServices userServices = findOrCreateUserLocked(userId);
 
-        OtherServiceStatus status = userServices.others.get(service.getComponent());
+        // OtherServiceStatus status = userServices.others.get(service.getComponent());
         // This is Error handling code if otherServiceStatus is null
-        if (status == null) {
-            Log.d(TAG, service.getComponent() + " status is could not be null");
-            return false;
-        }
+        // if (status == null) {
+        //     Log.d(TAG, service.getComponent() + " status is could not be null");
+        //     return false;
+        // }
 
-        if (service.isCategoryOtherServiceEnabled() == checked) {
-            Log.d(TAG, "already same status: " + checked);
-            return false;
-        }
+        // if (service.isSelectedOtherService() == checked) {
+        //     Log.d(TAG, "already same status: " + checked);
+        //     return false;
+        // }
 
-        service.setCategoryOtherServiceEnabled(checked);
-        status.checked = checked;
+        // service.setOtherServiceState(checked);
+        // status.checked = checked;
 
-        return writeOthersLocked();
+        // return writeOthersLocked();
+        return false;
     }
 
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {

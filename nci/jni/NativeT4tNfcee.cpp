@@ -30,7 +30,6 @@
 #include "nfc_config.h"
 
 using android::base::StringPrintf;
-extern bool nfc_debug_enabled;
 
 /*Considering NCI response timeout which is 2s, Timeout set 100ms more*/
 #define T4TNFCEE_TIMEOUT 2100
@@ -495,7 +494,7 @@ void NativeT4tNfcee::t4tReadComplete(tNFA_STATUS status, tNFA_RX_DATA data) {
   mT4tOpStatus = status;
   if (status == NFA_STATUS_OK) {
     if(data.len > 0) {
-      sRxDataBuffer.append(data.p_data, data.len);
+      sRxDataBuffer.insert(sRxDataBuffer.end(data.p_data, data.len);
       LOG(DEBUG) << StringPrintf("%s: Read Data len new: %d ", __func__,
                                  data.len);
     }

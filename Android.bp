@@ -3,7 +3,7 @@ package {
 }
 
 genrule {
-    name: "statslog-Nfc-java-gen",
+    name: "statslog-nqNfc-java-gen",
     tools: ["stats-log-api-gen"],
     cmd: "$(location stats-log-api-gen) --java $(out) --module nfc --javaPackage com.android.nfc"
         + " --javaClass NfcStatsLog",
@@ -11,7 +11,7 @@ genrule {
 }
 
 java_library {
-    name: "bluetooth-protos-nfc-enums-java-gen",
+    name: "bluetooth-protos-nqnfc-enums-java-gen",
     installable: false,
     proto: {
         type: "stream",
@@ -40,16 +40,16 @@ android_app {
         ":framework-nfc-updatable-sources",
         ":statslog-Nfc-java-gen",
     ],
-    uses_libs: ["com.nxp.nfc"],
+    uses_libs: ["com.nxp.nfc.nq"],
     platform_apis: true,
     privileged: true,
     certificate: "platform",
     // TODO(b/263565193): Change when NFC APK can link against module_current.
     // min_sdk_version: "VanillaIceCream",
     // sdk_version: "module_current",
-    jni_libs: ["libnfc_nci_jni"],
+    jni_libs: ["libsn100nfc_nci_jni"],
     libs: [
-        "com.nxp.nfc",
+        "com.nxp.nfc.nq",
         "framework-annotations-lib",
         "framework-bluetooth",
         "framework-configinfrastructure",
@@ -78,7 +78,7 @@ android_app {
         "com.android.nfcservices"
     ],
     jarjar_rules: "jarjar-rules.txt",
-    privapp_allowlist: ":privapp_allowlist_com.android.nfc.xml",
+    privapp_allowlist: ":privapp_allowlist_com.android.nqnfc.xml",
 }
 
 filegroup {
@@ -93,6 +93,6 @@ filegroup {
 }
 
 filegroup {
-    name: "privapp_allowlist_com.android.nfc.xml",
+    name: "privapp_allowlist_com.android.nqnfc.xml",
     srcs: ["com.android.nfc.xml"],
 }
