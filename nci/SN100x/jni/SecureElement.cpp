@@ -26,6 +26,7 @@
 #include <errno.h>
 #include "config.h"
 #include "nfc_config.h"
+#include "NativeJniExtns.h"
 #include "RoutingManager.h"
 #include "HciEventManager.h"
 #include "MposManager.h"
@@ -219,26 +220,29 @@ jint SecureElement::getGenericEseId(tNFA_HANDLE handle) {
     if(handle == (EE_HANDLE_0xF3 & ~NFA_HANDLE_GROUP_EE) ) //ESE - 0xC0
     {
         ret = ESE_ID;
-    }
-    else if(handle ==  (SecureElement::getInstance().EE_HANDLE_0xF4 & ~NFA_HANDLE_GROUP_EE) ) //UICC - 0x02
+    } else if (handle ==
+               (EE_HANDLE_0xF4 & ~NFA_HANDLE_GROUP_EE))  // UICC - 0x02
     {
         ret = UICC_ID;
     }
-    if(handle ==  (EE_HANDLE_0xF8 & ~NFA_HANDLE_GROUP_EE)) //UICC2 - 0x04
+    if (handle == (EE_HANDLE_0xF8 & ~NFA_HANDLE_GROUP_EE))  // UICC2 - 0x03
     {
         ret = UICC2_ID;
-    }
-    else if (handle == (EE_HANDLE_0xF9 & ~NFA_HANDLE_GROUP_EE)) //UICC2 - 0x04
+    } else if (handle ==
+               (EE_HANDLE_0xF9 & ~NFA_HANDLE_GROUP_EE))  // UICC3 - 0x04
     {
         ret = UICC3_ID;
-    }
-    else if (handle == (EE_HANDLE_0xF5 & ~NFA_HANDLE_GROUP_EE)) //EUICC - 0xC1
+    } else if (handle ==
+               (EE_HANDLE_0xF5 & ~NFA_HANDLE_GROUP_EE))  // EUICC - 0xC1
     {
         ret = EUICC_ID;
     } else if (handle ==
-               (EE_HANDLE_0xF6 & ~NFA_HANDLE_GROUP_EE))  // EUICC - 0xC1
+               (EE_HANDLE_0xF6 & ~NFA_HANDLE_GROUP_EE))  // EUICC2 - 0xC2
     {
         ret = EUICC2_ID;
+    } else if (handle == (EE_HANDLE_0xFE & ~NFA_HANDLE_GROUP_EE))  // T4T - 0x10
+    {
+        ret = T4T_NFCEE_ID;
     }
     LOG(INFO) << StringPrintf("%s: exit; ESE-Generic-ID = 0x%02X", fn, ret);
     return ret;
@@ -735,13 +739,17 @@ void SecureElement::nfaHciCallback(tNFA_HCI_EVT event,
         else if (eventData->rcvd_evt.evt_code == NFA_HCI_EVT_CONNECTIVITY)
         {
             LOG(INFO) << StringPrintf("%s: NFA_HCI_EVENT_RCVD_EVT; NFA_HCI_EVT_CONNECTIVITY", fn);
-        }
-        else
-        {
+        } else if (eventData->rcvd_evt.evt_code == NFA_HCI_EVT_DPD_MONITOR) {
+            if ((eventData->rcvd_evt.p_evt_buf[eventData->rcvd_evt.evt_len -
+                                               DPD_MONITOR_BYTE_OFFSET] &
+                 SMB_DPD_MONITOR_EVT_MASK)) {
+                NativeJniExtns::getInstance().notifyNfcEvent(
+                    "handleDPDMonitorNtf");
+            }
+        } else {
             LOG(INFO) << StringPrintf("%s: NFA_HCI_EVENT_RCVD_EVT; ################################### eventData->rcvd_evt.evt_code = 0x%x , NFA_HCI_EVT_CONNECTIVITY = 0x%x", fn, eventData->rcvd_evt.evt_code, NFA_HCI_EVT_CONNECTIVITY);
 
             LOG(INFO) << StringPrintf("%s: NFA_HCI_EVENT_RCVD_EVT; ################################### ", fn);
-
         }
         break;
 
@@ -937,54 +945,21 @@ TheEnd:
 *******************************************************************************/
 jintArray SecureElement::getActiveSecureElementList (JNIEnv* e)
 {
-    uint8_t num_of_nfcee_present = 0;
-    tNFA_HANDLE nfcee_handle[MAX_NFCEE];
-    tNFA_EE_STATUS nfcee_status[MAX_NFCEE];
-    jint seId = 0;
-    int cnt = 0;
-    int i;
+  if (!getEeInfo()) return (NULL);
 
-    if (! getEeInfo())
-        return (NULL);
-
-    num_of_nfcee_present = mNfceeData_t.mNfceePresent;
-
-    jintArray list = e->NewIntArray (num_of_nfcee_present); //allocate array
-
-    for(i = 0; i< num_of_nfcee_present ; i++)
-    {
-        nfcee_handle[i] = mNfceeData_t.mNfceeHandle[i];
-        nfcee_status[i] = mNfceeData_t.mNfceeStatus[i];
-
-        if(nfcee_handle[i] == EE_HANDLE_0xF3 && nfcee_status[i] == NFC_NFCEE_STATUS_ACTIVE)
-        {
-            seId = getGenericEseId(EE_HANDLE_0xF3 & ~NFA_HANDLE_GROUP_EE);
-        }
-
-        if(nfcee_handle[i] == EE_HANDLE_0xF4 && nfcee_status[i] == NFC_NFCEE_STATUS_ACTIVE)
-        {
-            seId = getGenericEseId(EE_HANDLE_0xF4 & ~NFA_HANDLE_GROUP_EE);
-        }
-
-        if (nfcee_handle[i] == EE_HANDLE_0xF5 &&
-            nfcee_status[i] == NFC_NFCEE_STATUS_ACTIVE) {
-          seId = getGenericEseId(EE_HANDLE_0xF5 & ~NFA_HANDLE_GROUP_EE);
-        }
-
-        if (nfcee_handle[i] == EE_HANDLE_0xF6 &&
-            nfcee_status[i] == NFC_NFCEE_STATUS_ACTIVE) {
-          seId = getGenericEseId(EE_HANDLE_0xF6 & ~NFA_HANDLE_GROUP_EE);
-        }
-
-        if(nfcee_handle[i] == EE_HANDLE_0xF8 && nfcee_status[i] == NFC_NFCEE_STATUS_ACTIVE)
-        {
-            seId = getGenericEseId(EE_HANDLE_0xF8 & ~NFA_HANDLE_GROUP_EE);
-        }
-
-        e->SetIntArrayRegion (list, cnt++, 1, &seId);
+  jint seId = 0xFF;
+  vector<jint> seIdList;
+  for (int i = 0; i < mNfceeData_t.mNfceePresent; i++) {
+    if (mNfceeData_t.mNfceeStatus[i] == NFC_NFCEE_STATUS_ACTIVE) {
+      seId = getGenericEseId(
+          (mNfceeData_t.mNfceeHandle[i] & ~NFA_HANDLE_GROUP_EE));
+      seIdList.push_back(seId);
+      LOG(INFO) << StringPrintf("%s: seID=0x%X", __func__, seId);
     }
-
-    return list;
+  }
+  jintArray list = e->NewIntArray(seIdList.size());
+  e->SetIntArrayRegion(list, 0, seIdList.size(), seIdList.data());
+  return list;
 }
 /*******************************************************************************
 **
@@ -1001,15 +976,18 @@ bool SecureElement::activate (jint seID)
     static const char fn [] = "SecureElement::activate";
     tNFA_HANDLE handle = getEseHandleFromGenericId(seID);
     uint8_t ActivePipeId = getGateAndPipeList(handle);
-
     LOG(INFO) << StringPrintf("%s: enter handle=0x%X, seID=0x%X", fn, handle,seID);
     // Get Fresh EE info if needed.
     if (!getEeInfo()) {
       LOG(ERROR) << StringPrintf("%s: no EE info", fn);
       return false;
     }
-    if ((seID == ESE_ID && ActivePipeId != SMX_ESE_PIPE_ID) ||
-        (seID == EUICC_ID && ActivePipeId != SMX_EUICC_PIPE_ID)) {
+
+    if ((seID == ESE_ID || seID == EUICC_ID || seID == EUICC2_ID) &&
+        (ActivePipeId == SMX_ESE_PIPE_ID || ActivePipeId == SMX_EUICC_PIPE_ID )) {
+      LOG(ERROR) << StringPrintf("%s: Pipe ID:0x%X is created for seID=0x%X", fn,
+                                 ActivePipeId, seID);
+    } else {
       LOG(ERROR) << StringPrintf("%s: Pipe is not created", fn);
       return false;
     }
@@ -1666,19 +1644,6 @@ uint8_t SecureElement::getGateAndPipeList(tNFA_HANDLE eeHandle) {
       "gate: 0x%02x  pipe: 0x%02x",
       fn, mNewSourceGate, mNewPipeId);
   return mNewPipeId;
-}
-/*******************************************************************************
-**
-** Function         getLastRfFiledToggleTime
-**
-** Description      Provides the last RF filed toggile timer
-**
-** Returns          timespec
-**
-*******************************************************************************/
-struct timespec SecureElement::getLastRfFiledToggleTime(void)
-{
-  return mLastRfFieldToggle;
 }
 /*******************************************************************************
 **

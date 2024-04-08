@@ -1,17 +1,22 @@
 {
+  "presubmit": [
+    {
+      "name": "CtsNfcTestCases"
+    }
+  ],
   "postsubmit": [
     {
-      "name": "NfcNciInstrumentationTests",
+      "name": "NqNfcNciInstrumentationTests",
       "keywords": ["primary-device"]
     },
     {
-      "name": "NfcNciUnitTests",
+      "name": "NqNfcNciUnitTests",
       "keywords": ["primary-device"]
     }
   ],
   "pts-prebuilt": [
     {
-      "name": "NfcNciInstrumentationTests",
+      "name": "NqNfcNciInstrumentationTests",
       "options" : [
         {
           "include-filter": "com.android.nfc.NfcStateTest#testDisableWhenEnabled"

@@ -1,7 +1,4 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
- * Not a Contribution.
- *
  * Copyright (C) 2013 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -68,6 +65,8 @@ import android.util.proto.ProtoOutputStream;
 import com.nxp.nfc.NfcConstants;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.util.FastXmlSerializer;
+import com.android.internal.util.XmlUtils;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -116,6 +115,7 @@ public class RegisteredServicesCache {
     final Callback mCallback;
     final AtomicFile mDynamicSettingsFile;
     final AtomicFile mServiceStateFile;
+    final AtomicFile mOthersFile;
     HashMap<String, HashMap<ComponentName, Integer>> installedServices = new HashMap<>();
 
     public interface Callback {
@@ -130,9 +130,20 @@ public class RegisteredServicesCache {
         public final int uid;
         public final HashMap<String, AidGroup> aidGroups = new HashMap<>();
         public String offHostSE;
+        public boolean defaultToObserveMode = false;
 
         DynamicSettings(int uid) {
             this.uid = uid;
+        }
+    };
+
+    static class OtherServiceStatus {
+        public final int uid;
+        public boolean checked;
+
+        OtherServiceStatus(int uid, boolean checked) {
+            this.uid = uid;
+            this.checked = checked;
         }
     };
 
@@ -144,6 +155,8 @@ public class RegisteredServicesCache {
                 new HashMap<>(); // Re-built at run-time
         final HashMap<ComponentName, DynamicSettings> dynamicSettings =
                 new HashMap<>(); // In memory cache of dynamic settings
+        final HashMap<ComponentName, OtherServiceStatus> others =
+                new HashMap<>();
     };
 
     private UserServices findOrCreateUserLocked(int userId) {
@@ -225,11 +238,13 @@ public class RegisteredServicesCache {
         File dataDir = mContext.getFilesDir();
         mDynamicSettingsFile = new AtomicFile(new File(dataDir, "dynamic_aids.xml"));
         mServiceStateFile = new AtomicFile(new File(dataDir, "service_state.xml"));
+	mOthersFile = new AtomicFile(new File(dataDir, "other_status.xml"));
     }
 
     void initialize() {
         synchronized (mLock) {
             readDynamicSettingsLocked();
+	    readOthersLocked();
             for (UserHandle uh : mUserHandles) {
                 invalidateCache(uh.getIdentifier(), false);
             }
@@ -427,11 +442,70 @@ public class RegisteredServicesCache {
                 writeDynamicSettingsLocked();
             }
         }
+
+        List<ApduServiceInfo> otherServices = getServicesForCategory(userId,
+                CardEmulation.CATEGORY_OTHER);
+        invalidateOther(userId, otherServices);
+
         mCallback.onServicesUpdated(userId, Collections.unmodifiableList(validServices),
                 validateInstalled);
         dump(validServices);
     }
 
+    private void invalidateOther(int userId, List<ApduServiceInfo> validOtherServices) {
+        Log.d(TAG, "invalidate : " + userId);
+        // remove services
+        synchronized (mLock) {
+            UserServices userServices = findOrCreateUserLocked(userId);
+            boolean needToWrite = false;
+            Iterator<Map.Entry<ComponentName, OtherServiceStatus>> it =
+                    userServices.others.entrySet().iterator();
+
+            while (it.hasNext()) {
+                Map.Entry<ComponentName, OtherServiceStatus> entry = it.next();
+                if (!containsServiceLocked((ArrayList<ApduServiceInfo>) validOtherServices,
+                        entry.getKey())) {
+                    Log.d(TAG, "Service removed: " + entry.getKey());
+                    needToWrite = true;
+                    it.remove();
+                }
+            }
+
+            UserManager um = mContext.createContextAsUser(
+                            UserHandle.of(ActivityManager.getCurrentUser()), /*flags=*/0)
+                    .getSystemService(UserManager.class);
+            boolean isManagedProfile = um.isManagedProfile(userId);
+            Log.i(TAG, "current user: " + ActivityManager.getCurrentUser() +
+                    ", is managed profile : " + isManagedProfile );
+            boolean isChecked = !(isManagedProfile);
+
+            for (ApduServiceInfo service : validOtherServices) {
+                Log.d(TAG, "update valid otherService: " + service.getComponent()
+                        + " AIDs: " + service.getAids());
+                if (!service.hasCategory(CardEmulation.CATEGORY_OTHER)) {
+                    Log.e(TAG, "service does not have other category");
+                    continue;
+                }
+
+                ComponentName component = service.getComponent();
+                OtherServiceStatus status = userServices.others.get(component);
+
+                if (status == null) {
+                    Log.d(TAG, "New other service");
+                    status = new OtherServiceStatus(service.getUid(), isChecked);
+                    needToWrite = true;
+                } else {
+                    Log.d(TAG, "Existed other service");
+                }
+                service.setCategoryOtherServiceEnabled(status.checked);
+                userServices.others.put(component, status);
+            }
+
+            if (needToWrite) {
+                writeOthersLocked();
+            }
+        }
+    }
     private void readDynamicSettingsLocked() {
         FileInputStream fis = null;
         try {
@@ -453,6 +527,7 @@ public class RegisteredServicesCache {
                 ComponentName currentComponent = null;
                 int currentUid = -1;
                 String currentOffHostSE = null;
+                boolean defaultToObserveMode = false;
                 ArrayList<AidGroup> currentGroups = new ArrayList<AidGroup>();
                 while (eventType != XmlPullParser.END_DOCUMENT) {
                     tagName = parser.getName();
@@ -461,6 +536,8 @@ public class RegisteredServicesCache {
                             String compString = parser.getAttributeValue(null, "component");
                             String uidString = parser.getAttributeValue(null, "uid");
                             String offHostString = parser.getAttributeValue(null, "offHostSE");
+                            String defaultToObserveModeStr =
+                                parser.getAttributeValue(null, "defaultToObserveMode");
                             if (compString == null || uidString == null) {
                                 Log.e(TAG, "Invalid service attributes");
                             } else {
@@ -469,6 +546,9 @@ public class RegisteredServicesCache {
                                     currentComponent = ComponentName.unflattenFromString(compString);
                                     currentOffHostSE = offHostString;
                                     inService = true;
+                                    defaultToObserveMode =
+                                        XmlUtils.convertValueToBoolean(defaultToObserveModeStr,
+                                        false);
                                 } catch (NumberFormatException e) {
                                     Log.e(TAG, "Could not parse service uid");
                                 }
@@ -494,6 +574,7 @@ public class RegisteredServicesCache {
                                     dynSettings.aidGroups.put(group.getCategory(), group);
                                 }
                                 dynSettings.offHostSE = currentOffHostSE;
+                                dynSettings.defaultToObserveMode = defaultToObserveMode;
                                 UserServices services = findOrCreateUserLocked(userId);
                                 services.dynamicSettings.put(currentComponent, dynSettings);
                             }
@@ -520,6 +601,82 @@ public class RegisteredServicesCache {
         }
     }
 
+    private void readOthersLocked() {
+        Log.d(TAG, "read others locked");
+
+        FileInputStream fis = null;
+        try {
+            if (!mOthersFile.getBaseFile().exists()) {
+                Log.d(TAG, "Dynamic AIDs file does not exist.");
+                return;
+            }
+            fis = mOthersFile.openRead();
+            XmlPullParser parser = Xml.newPullParser();
+            parser.setInput(fis, null);
+            int eventType = parser.getEventType();
+            while (eventType != XmlPullParser.START_TAG &&
+                    eventType != XmlPullParser.END_DOCUMENT) {
+                eventType = parser.next();
+            }
+            String tagName = parser.getName();
+            if ("services".equals(tagName)) {
+                boolean checked = false;
+                ComponentName currentComponent = null;
+                int currentUid = -1;
+
+                while (eventType != XmlPullParser.END_DOCUMENT) {
+                    tagName = parser.getName();
+                    if (eventType == XmlPullParser.START_TAG) {
+                        if ("service".equals(tagName) && parser.getDepth() == 2) {
+                            String compString = parser.getAttributeValue(null, "component");
+                            String uidString = parser.getAttributeValue(null, "uid");
+                            String checkedString = parser.getAttributeValue(null, "checked");
+                            if (compString == null || uidString == null || checkedString == null) {
+                                Log.e(TAG, "Invalid service attributes");
+                            } else {
+                                try {
+                                    currentUid = Integer.parseInt(uidString);
+                                    currentComponent =
+                                            ComponentName.unflattenFromString(compString);
+                                    checked = checkedString.equals("true") ? true : false;
+                                } catch (NumberFormatException e) {
+                                    Log.e(TAG, "Could not parse service uid");
+                                }
+                            }
+                        }
+                    } else if (eventType == XmlPullParser.END_TAG) {
+                        if ("service".equals(tagName)) {
+                            // See if we have a valid service
+                            if (currentComponent != null && currentUid >= 0) {
+                                Log.d(TAG, " end of service tag");
+                                final int userId = UserHandle.getUserId(currentUid);
+                                OtherServiceStatus status =
+                                        new OtherServiceStatus(currentUid, checked);
+                                Log.d(TAG, " ## user id - " + userId);
+                                UserServices services = findOrCreateUserLocked(userId);
+                                services.others.put(currentComponent, status);
+                            }
+                            currentUid = -1;
+                            currentComponent = null;
+                            checked = false;
+                        }
+                    }
+                    eventType = parser.next();
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Could not parse others AIDs file, trashing.");
+            mOthersFile.delete();
+        } finally {
+            if (fis != null) {
+                try {
+                    fis.close();
+                } catch (IOException e) {
+                    // It is safe to ignore I/O exceptions when closing FileInputStream
+                }
+            }
+        }
+    }
     private boolean writeDynamicSettingsLocked() {
         FileOutputStream fos = null;
         try {
@@ -531,13 +688,16 @@ public class RegisteredServicesCache {
             out.startTag(null, "services");
             for (int i = 0; i < mUserServices.size(); i++) {
                 final UserServices user = mUserServices.valueAt(i);
-                for (Map.Entry<ComponentName, DynamicSettings> service : user.dynamicSettings.entrySet()) {
+                for (Map.Entry<ComponentName, DynamicSettings> service :
+                        user.dynamicSettings.entrySet()) {
                     out.startTag(null, "service");
                     out.attribute(null, "component", service.getKey().flattenToString());
                     out.attribute(null, "uid", Integer.toString(service.getValue().uid));
                     if(service.getValue().offHostSE != null) {
                         out.attribute(null, "offHostSE", service.getValue().offHostSE);
                     }
+                    out.attribute(null,"defaultToObserveMode",
+                        Boolean.toString(service.getValue().defaultToObserveMode));
                     for (AidGroup group : service.getValue().aidGroups.values()) {
                         group.writeAsXml(out);
                     }
@@ -552,6 +712,65 @@ public class RegisteredServicesCache {
             Log.e(TAG, "Error writing dynamic AIDs", e);
             if (fos != null) {
                 mDynamicSettingsFile.failWrite(fos);
+            }
+            return false;
+        }
+    }
+
+    private boolean writeOthersLocked() {
+        Log.d(TAG, "write Others Locked()");
+
+        FileOutputStream fos = null;
+        try {
+            fos = mOthersFile.startWrite();
+            XmlSerializer out = new FastXmlSerializer();
+            out.setOutput(fos, "utf-8");
+            out.startDocument(null, true);
+            out.setFeature(XML_INDENT_OUTPUT_FEATURE, true);
+            out.startTag(null, "services");
+
+            Log.d(TAG, "userServices.size: " + mUserServices.size());
+            for (int i = 0; i < mUserServices.size(); i++) {
+                final UserServices user = mUserServices.valueAt(i);
+                int userId = mUserServices.keyAt(i);
+                // Checking for 1 times
+                Log.d(TAG, "userId: " + userId);
+                Log.d(TAG, "others size: " + user.others.size());
+                ArrayList<ComponentName> currentService = new ArrayList<ComponentName>();
+                for (Map.Entry<ComponentName, OtherServiceStatus> service :
+                        user.others.entrySet()) {
+                    Log.d(TAG, "component: " + service.getKey().flattenToString() +
+                            ", checked: " + service.getValue().checked);
+
+                    boolean hasDupe = false;
+                    for (ComponentName cn : currentService) {
+                        if (cn.equals(service.getKey())) {
+                            hasDupe = true;
+                            break;
+                        }
+                    }
+                    if (hasDupe) {
+                        continue;
+                    } else {
+                        Log.d(TAG, "Already written.");
+                        currentService.add(service.getKey());
+                    }
+
+                    out.startTag(null, "service");
+                    out.attribute(null, "component", service.getKey().flattenToString());
+                    out.attribute(null, "uid", Integer.toString(service.getValue().uid));
+                    out.attribute(null, "checked", Boolean.toString(service.getValue().checked));
+                    out.endTag(null, "service");
+                }
+            }
+            out.endTag(null, "services");
+            out.endDocument();
+            mOthersFile.finishWrite(fos);
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Error writing dynamic AIDs", e);
+            if (fos != null) {
+                mOthersFile.failWrite(fos);
             }
             return false;
         }
@@ -601,7 +820,7 @@ public class RegisteredServicesCache {
         return true;
     }
 
-    public boolean unsetOffHostSecureElement(int userId, int uid, ComponentName componentName) {
+    public boolean resetOffHostSecureElement(int userId, int uid, ComponentName componentName) {
         ArrayList<ApduServiceInfo> newServices = null;
         synchronized (mLock) {
             UserServices services = findOrCreateUserLocked(userId);
@@ -643,10 +862,40 @@ public class RegisteredServicesCache {
         return true;
     }
 
+    public boolean setServiceObserveModeDefault(int userId, int uid,
+            ComponentName componentName, boolean enable) {
+        synchronized (mLock) {
+            UserServices services = findOrCreateUserLocked(userId);
+            // Check if we can find this service
+            ApduServiceInfo serviceInfo = getService(userId, componentName);
+            if (serviceInfo == null) {
+                Log.e(TAG, "Service " + componentName + " does not exist.");
+                return false;
+            }
+            if (serviceInfo.getUid() != uid) {
+                // This is probably a good indication something is wrong here.
+                // Either newer service installed with different uid (but then
+                // we should have known about it), or somebody calling us from
+                // a different uid.
+                Log.e(TAG, "UID mismatch.");
+                return false;
+            }
+            DynamicSettings dynSettings = services.dynamicSettings.get(componentName);
+            if (dynSettings == null) {
+                dynSettings = new DynamicSettings(uid);
+                dynSettings.offHostSE = null;
+                services.dynamicSettings.put(componentName, dynSettings);
+            }
+            dynSettings.defaultToObserveMode = enable;
+        }
+        return true;
+    }
+
     @TargetApi(35)
     @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
     public boolean registerPollingLoopFilterForService(int userId, int uid,
-            ComponentName componentName, String pollingLoopFilter) {
+            ComponentName componentName, String pollingLoopFilter,
+	    boolean autoTransact) {
 //        ArrayList<ApduServiceInfo> newServices = null;
 //        synchronized (mLock) {
 //            UserServices services = findOrCreateUserLocked(userId);
@@ -668,7 +917,7 @@ public class RegisteredServicesCache {
 //                Log.e(TAG, "invalid polling loop filter");
 //                return false;
 //            }
-//            serviceInfo.addPollingLoopFilter(pollingLoopFilter);
+//            serviceInfo.addPollingLoopFilter(pollingLoopFilter, autoTransact);
 //            newServices = new ArrayList<ApduServiceInfo>(services.services.values());
 //        }
 //        mCallback.onServicesUpdated(userId, newServices, true);
@@ -822,6 +1071,12 @@ public class RegisteredServicesCache {
         return success;
     }
 
+    boolean doesServiceDefaultToObserveMode(int userId, ComponentName service) {
+        UserServices services = findOrCreateUserLocked(userId);
+        DynamicSettings dynSettings = services.dynamicSettings.get(service);
+        return dynSettings != null && dynSettings.defaultToObserveMode;
+    }
+
     private boolean updateOtherServiceStatus(int userId, ApduServiceInfo service, boolean checked) {
         // UserServices userServices = findOrCreateUserLocked(userId);
 
@@ -849,22 +1104,22 @@ public class RegisteredServicesCache {
         ParcelFileDescriptor pFd;
         try {
             pFd = ParcelFileDescriptor.dup(fd);
-        } catch (IOException e) {
-            return;
-        }
-
-        synchronized (mLock) {
-            for (UserHandle uh : mUserHandles) {
-                UserManager um = mContext.createContextAsUser(
-                        uh, /*flags=*/0).getSystemService(UserManager.class);
-                pw.println("User " + um.getUserName() + " : ");
-                UserServices userServices = findOrCreateUserLocked(uh.getIdentifier());
-                for (ApduServiceInfo service : userServices.services.values()) {
-                    service.dump(pFd, pw, args);
+            synchronized (mLock) {
+                for (UserHandle uh : mUserHandles) {
+                    UserManager um = mContext.createContextAsUser(
+                            uh, /*flags=*/0).getSystemService(UserManager.class);
+                    pw.println("User " + um.getUserName() + " : ");
+                    UserServices userServices = findOrCreateUserLocked(uh.getIdentifier());
+                    for (ApduServiceInfo service : userServices.services.values()) {
+                        service.dump(pFd, pw, args);
+                        pw.println("");
+                    }
                     pw.println("");
                 }
-                pw.println("");
             }
+            pFd.close();
+        } catch (IOException e) {
+            pw.println("Failed to dump HCE services: " + e);
         }
     }
 

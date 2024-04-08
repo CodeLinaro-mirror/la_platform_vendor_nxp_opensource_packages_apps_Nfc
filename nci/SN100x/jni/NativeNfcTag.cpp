@@ -43,6 +43,7 @@
 #include <signal.h>
 #include <string.h>
 #include <time.h>
+#include <vector>
 
 #include "IntervalTimer.h"
 #include "JavaClassConstants.h"
@@ -124,7 +125,7 @@ static tNFA_INTF_TYPE sCurrentActivatedProtocl = NFC_PROTOCOL_UNKNOWN;
 #else
 static SyncEvent sTransceiveEvent;
 #endif
-static std::basic_string<uint8_t> sRxDataBuffer;
+static std::vector<uint8_t> sRxDataBuffer;
 static tNFA_STATUS sRxDataStatus = NFA_STATUS_OK;
 static bool sWaitingForTransceive = false;
 static bool sTransceiveRfTimeout = false;
@@ -1111,7 +1112,7 @@ void nativeNfcTag_doTransceiveStatus(tNFA_STATUS status, uint8_t* buf,
   }
   sRxDataStatus = status;
   if (sRxDataStatus == NFA_STATUS_OK || sRxDataStatus == NFC_STATUS_CONTINUE)
-    sRxDataBuffer.append(buf, bufLen);
+    sRxDataBuffer.insert(sRxDataBuffer.end(), buf, buf + bufLen);
 
   if (sRxDataStatus == NFA_STATUS_OK) sTransceiveEvent.notifyOne();
 
@@ -1692,6 +1693,20 @@ static jboolean nativeNfcTag_doPresenceCheck(JNIEnv*, jobject) {
       }
     }
 
+#if (NXP_EXTNS == TRUE)
+    if((sCurrentConnectedTargetProtocol == NFA_PROTOCOL_T2T) &&
+       (sCurrentRfInterface == NFA_INTERFACE_FRAME) &&
+       (!NfcTag::getInstance().isMifareUltralight())) {
+       /* Only applicable for Type2 tag which has SAK value other than 0
+        (as defined in NFC Digital Protocol, section 4.8.2(SEL_RES)) */
+      uint8_t RW_TAG_SLP_REQ[] = {0x50, 0x00};
+      status = NFA_SendRawFrame(RW_TAG_SLP_REQ, sizeof(RW_TAG_SLP_REQ), 0);
+      if (status != NFA_STATUS_OK) {
+        DLOG_IF(ERROR, nfc_debug_enabled) << StringPrintf(
+            "%s: failed to send RW_TAG_SLP_REQ, status=%d", __func__, status);
+      }
+    }
+#endif
     status = NFA_RwPresenceCheck(method);
     if (status == NFA_STATUS_OK) {
       isPresent = sPresenceCheckEvent.wait(2000);
@@ -1708,11 +1723,20 @@ static jboolean nativeNfcTag_doPresenceCheck(JNIEnv*, jobject) {
              (sCurrentConnectedTargetProtocol == NFC_PROTOCOL_T5T))) ||
            (sCurrentConnectedTargetProtocol == NFC_PROTOCOL_T3T))) {
         sPresCheckErrCnt++;
-
+#if (NXP_EXTNS == TRUE)
+        int retryCount =
+            NfcConfig::getUnsigned(NAME_PRESENCE_CHECK_RETRY_COUNT,
+                                   DEFAULT_PRESENCE_CHECK_RETRY_COUNT);
+        while (sPresCheckErrCnt <= retryCount) {
+          DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
+              "%s(%d): pres check failed, try again (attempt #%d/%d)",
+              __FUNCTION__, __LINE__, sPresCheckErrCnt, retryCount);
+#else
         while (sPresCheckErrCnt <= 3) {
           DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
               "%s(%d): pres check failed, try again (attempt #%d/3)",
               __FUNCTION__, __LINE__, sPresCheckErrCnt);
+#endif
 
           status = NFA_RwPresenceCheck(method);
 
