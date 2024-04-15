@@ -80,6 +80,7 @@ import android.nfc.IAppCallback;
 import android.nfc.INfcAdapter;
 import android.nfc.INfcAdapterExtras;
 import android.nfc.INfcCardEmulation;
+import android.nfc.INfcOemExtensionCallback;
 import android.nfc.INfcControllerAlwaysOnListener;
 import android.nfc.INfcDta;
 import android.nfc.INfcFCardEmulation;
@@ -594,6 +595,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     private int SELFTEST_SET_RFTXCFG = 0x01;
     private int SELFTEST_PRBS = 0x06;
     private int SELFTEST_SWP = 0x07;
+    private  INfcOemExtensionCallback mNfcOemExtensionCallback = null;
 
     private final FeatureFlags mFeatureFlags = new com.android.nfc.flags.FeatureFlagsImpl();
 
@@ -1744,8 +1746,31 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 	    return 0;
 	}
 
+        @Override
+        public void registerOemExtensionCallback(INfcOemExtensionCallback callbacks)
+                throws RemoteException {
+            if (DBG) Log.i(TAG, "Register the oem extension callback");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            mNfcOemExtensionCallback = callbacks;
+        }
+
+        @Override
+        public void unregisterOemExtensionCallback(INfcOemExtensionCallback callbacks)
+                throws RemoteException {
+            if (DBG) Log.i(TAG, "Unregister the oem extension callback");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            mNfcOemExtensionCallback = null;
+        }
+
+        @Override
+        public void clearPreference() throws RemoteException {
+            if (DBG) Log.i(TAG, "clearPreference");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            // TODO: Implement this.
+        }
+
 	@Override
-        public boolean enable() throws RemoteException {
+        public boolean enable(String pkg) throws RemoteException {
             NfcPermissions.enforceAdminPermissions(mContext);
 
             mIsULPDetModeEnabled = false;
@@ -1777,8 +1802,10 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             else
                 mDeviceHost.doResonantFrequency(false);
        }
+
+
         @Override
-        public boolean disable(boolean saveState) throws RemoteException {
+        public boolean disable(boolean saveState, String pkg) throws RemoteException {
             NfcPermissions.enforceAdminPermissions(mContext);
 
             if (saveState) {
@@ -2909,9 +2936,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
             /*restart NFC service*/
             try {
-                mNfcAdapter.disable(true);
+                mNfcAdapter.disable(true, "");
                 WaitForAdapterChange(NfcAdapter.STATE_OFF);
-                mNfcAdapter.enable();
+                mNfcAdapter.enable("");
                 WaitForAdapterChange(NfcAdapter.STATE_ON);
             } catch (Exception e) {
                 Log.e(TAG, "Unable to restart NFC Service");
