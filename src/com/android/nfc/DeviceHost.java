@@ -205,8 +205,6 @@ public interface DeviceHost {
 
     public boolean setRoutingEntry(int type, int value, int route, int power);
 
-    public boolean clearRoutingEntry(int type);
-
     public int getDefaultAidRoute();
 
     public int getDefaultDesfireRoute();
@@ -310,8 +308,17 @@ public interface DeviceHost {
      */
     void startStopPolling(boolean enable);
 
+    void setIsoDepProtocolRoute(int route);
+    void setTechnologyABRoute(int route);
+    void clearRoutingEntry(int clearFlags);
+
+    /**
+    * Set NFCC discovery technology for polling and listening
+    */
+    void setDiscoveryTech(int pollTech, int listenTech);
+    void resetDiscoveryTech();
+
     /* NXP extension are here */
-    public int doChangeDiscoveryTech(int pollTech, int listenTech);
     public boolean accessControlForCOSU (int mode);
 
     public int getFWVersion();
@@ -343,4 +350,9 @@ public interface DeviceHost {
      * Enable or Disable the ULPDet Mode based on flag
      */
     boolean setULPDetMode(boolean flag);
+
+    /**
+     * Enable or Disable the Power Saving Mode based on flag
+     */
+    boolean setPowerSavingMode(boolean flag);
 }

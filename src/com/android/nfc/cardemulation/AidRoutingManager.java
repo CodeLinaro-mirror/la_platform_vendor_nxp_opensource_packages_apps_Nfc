@@ -29,7 +29,7 @@
 *  See the License for the specific language governing permissions and
 *  limitations under the License.
 *
-*  Copyright 2018-2021,2023 NXP
+*  Copyright 2018-2021,2023-2024 NXP
 *
 ******************************************************************************/
 package com.android.nfc.cardemulation;
@@ -111,12 +111,7 @@ public class AidRoutingManager {
     // Easy look-up what the power is for a certain AID
     HashMap<String, Integer> mPowerForAid = new HashMap<String, Integer>();
 
-    private native int doGetDefaultRouteDestination();
-    private native int doGetDefaultOffHostRouteDestination();
-    private native byte[] doGetOffHostUiccDestination();
-    private native byte[] doGetOffHostEseDestination();
-    private native int doGetAidMatchingMode();
-    private native int doGetDefaultIsoDepRouteDestination();
+    RoutingOptionManager mRoutingOptionManager = RoutingOptionManager.getInstance();
     final ActivityManager mActivityManager;
     final class AidEntry {
         boolean isOnHost;
@@ -127,24 +122,24 @@ public class AidRoutingManager {
     }
 
     public AidRoutingManager() {
-        mDefaultRoute = doGetDefaultRouteDestination();
+        mDefaultRoute = mRoutingOptionManager.getDefaultRoute();
         if (DBG)
           Log.d(TAG, "mDefaultRoute=0x" + Integer.toHexString(mDefaultRoute));
-        mDefaultOffHostRoute = doGetDefaultOffHostRouteDestination();
+        mDefaultOffHostRoute = mRoutingOptionManager.getDefaultOffHostRoute();
         if (DBG)
           Log.d(TAG, "mDefaultOffHostRoute=0x" + Integer.toHexString(mDefaultOffHostRoute));
-        mOffHostRouteUicc = doGetOffHostUiccDestination();
+        mOffHostRouteUicc = mRoutingOptionManager.getOffHostRouteUicc();
         if (DBG)
             Log.d(TAG, "mOffHostRouteUicc=" + Arrays.toString(mOffHostRouteUicc));
-        mOffHostRouteEse = doGetOffHostEseDestination();
+        mOffHostRouteEse = mRoutingOptionManager.getOffHostRouteEse();
         if (DBG)
           Log.d(TAG, "mOffHostRouteEse=" + Arrays.toString(mOffHostRouteEse));
-        mAidMatchingSupport = doGetAidMatchingMode();
+        mAidMatchingSupport = mRoutingOptionManager.getAidMatchingSupport();
         if (DBG) Log.d(TAG, "mAidMatchingSupport=0x" + Integer.toHexString(mAidMatchingSupport));
         mDefaultAidRoute =   NfcService.getInstance().GetDefaultRouteEntry() >> 0x08;
         if (DBG)
           Log.d(TAG, "mDefaultAidRoute=0x" + Integer.toHexString(mDefaultAidRoute));
-        mDefaultIsoDepRoute = doGetDefaultIsoDepRouteDestination();
+        mDefaultIsoDepRoute = mRoutingOptionManager.getDefaultIsoDepRoute();
         if (DBG) Log.d(TAG, "mDefaultIsoDepRoute=0x" + Integer.toHexString(mDefaultIsoDepRoute));
         mLastCommitStatus = false;
 
@@ -242,35 +237,45 @@ public class AidRoutingManager {
         return 0;
     }
 
+    //Checking in case of power/route update of any AID after conflict
+    //resolution, is routing required or not?
+    private boolean isAidEntryUpdated(HashMap<String, Integer> currRouteForAid,
+                                                Map.Entry<String, Integer> aidEntry,
+                                                HashMap<String, Integer> prevPowerForAid){
+        if((currRouteForAid.get(aidEntry.getKey()) != aidEntry.getValue())||
+            (mPowerForAid.get(aidEntry.getKey()) != prevPowerForAid.get(aidEntry.getKey()))){
+                return true;
+            }
+        return false;
+    }
+
     //Check if Any AID entry needs to be removed from previously registered
-    //entries in the Routing table. Current AID entries are part of
-    //mRouteForAid and previously registered AID entries are part of input
-    //argument prevRouteForAid.
-    private boolean checkUnrouteAid(HashMap<String, Integer> prevRouteForAid) {
+    //entries in the Routing table. Current AID entries & power state are part of
+    //mRouteForAid & mPowerForAid respectively. previously registered AID entries &
+    //power states are part of input argument prevRouteForAid & prevPowerForAid respectively.
+    private boolean checkUnrouteAid(HashMap<String, Integer> prevRouteForAid,
+                                     HashMap<String, Integer> prevPowerForAid) {
         for (Map.Entry<String, Integer> aidEntry : prevRouteForAid.entrySet())  {
-            if(!mRouteForAid.containsKey(aidEntry.getKey()) ||
-                (mRouteForAid.containsKey(aidEntry.getKey()) &&
-                (mRouteForAid.get(aidEntry.getKey()) != aidEntry.getValue()))){
-                    if(aidEntry.getValue() != mDefaultAidRoute){
-                        return true;
-                    }
+            if((aidEntry.getValue() != mDefaultAidRoute) &&
+                (!mRouteForAid.containsKey(aidEntry.getKey()) ||
+                isAidEntryUpdated(mRouteForAid, aidEntry, prevPowerForAid))){
+                    return true;
             }
         }
         return false;
     }
 
     //Check if Any AID entry needs to be added to previously registered
-    //entries in the Routing table. Current AID entries are part of
-    //mRouteForAid and previously registered AID entries are part of input
-    //argument prevRouteForAid.
-    private boolean checkRouteAid(HashMap<String, Integer> prevRouteForAid){
+    //entries in the Routing table. Current AID entries & power state are part of
+    //mRouteForAid & mPowerForAid respectively. previously registered AID entries &
+    //power states are part of input argument prevRouteForAid & prevPowerForAid respectively.
+    private boolean checkRouteAid(HashMap<String, Integer> prevRouteForAid,
+                                   HashMap<String, Integer> prevPowerForAid){
         for (Map.Entry<String, Integer> aidEntry : mRouteForAid.entrySet())  {
-            if(!prevRouteForAid.containsKey(aidEntry.getKey()) ||
-                (prevRouteForAid.containsKey(aidEntry.getKey()) &&
-                (prevRouteForAid.get(aidEntry.getKey()) != aidEntry.getValue()))){
-                    if(aidEntry.getValue() != mDefaultAidRoute){
-                        return true;
-                    }
+            if((aidEntry.getValue() != mDefaultAidRoute) &&
+                (!prevRouteForAid.containsKey(aidEntry.getKey())||
+                isAidEntryUpdated(prevRouteForAid, aidEntry, prevPowerForAid))){
+                    return true;
             }
         }
         return false;
@@ -281,8 +286,12 @@ public class AidRoutingManager {
         HashMap<String, AidEntry> aidRoutingTableCache = new HashMap<String, AidEntry>(aidMap.size());
         ArrayList<Integer> seList = new ArrayList<Integer>();
         mAidRoutingTableSize = NfcService.getInstance().getAidRoutingTableSize();
-        mDefaultAidRoute =   NfcService.getInstance().GetDefaultRouteEntry() >> 0x08;
-        mDefaultOffHostRoute = doGetDefaultOffHostRouteDestination();
+        if (mRoutingOptionManager.isRoutingTableOverrided()) {
+            mDefaultAidRoute = mRoutingOptionManager.getOverrideDefaultRoute();
+        } else {
+            mDefaultAidRoute = NfcService.getInstance().GetDefaultRouteEntry() >> 0x08;
+        }
+        mDefaultOffHostRoute = mRoutingOptionManager.getDefaultOffHostRoute();
         boolean isPowerStateUpdated = false;
         Log.e(TAG, "Size of routing table"+mAidRoutingTableSize);
         seList.add(mDefaultAidRoute);
@@ -294,6 +303,7 @@ public class AidRoutingManager {
         HashMap<String, Integer> powerForAid = new HashMap<String, Integer>(aidMap.size());
         HashMap<String, Integer> infoForAid = new HashMap<String, Integer>(aidMap.size());
         HashMap<String, Integer> prevRouteForAid = new HashMap<String, Integer>();
+        HashMap<String, Integer> prevPowerForAid = new HashMap<String, Integer>();
 
         // Then, populate internal data structures first
         for (Map.Entry<String, AidEntry> aidEntry : aidMap.entrySet())  {
@@ -342,6 +352,7 @@ public class AidRoutingManager {
             NfcService.getInstance().addT4TNfceeAid();
             prevRouteForAid = mRouteForAid;
             mRouteForAid = routeForAid;
+            prevPowerForAid = mPowerForAid;
             mPowerForAid = powerForAid;
             mAidRoutingTable = aidRoutingTable;
             mMaxAidRoutingTableSize = NfcService.getInstance().getAidRoutingTableSize();
@@ -485,14 +496,15 @@ public class AidRoutingManager {
                     }
                 }
 
-                if (calculateAidRouteSize(aidRoutingTableCache) <= mMaxAidRoutingTableSize) {
+                if (calculateAidRouteSize(aidRoutingTableCache) <= mMaxAidRoutingTableSize ||
+                    mRoutingOptionManager.isRoutingTableOverrided()) {
                     aidRouteResolved = true;
                     break;
                 }
             }
 
-            boolean mIsUnrouteRequired = checkUnrouteAid(prevRouteForAid);
-            boolean isRouteTableUpdated = checkRouteAid(prevRouteForAid);
+            boolean mIsUnrouteRequired = checkUnrouteAid(prevRouteForAid, prevPowerForAid);
+            boolean isRouteTableUpdated = checkRouteAid(prevRouteForAid, prevPowerForAid);
 
             if (isPowerStateUpdated || isRouteTableUpdated || mIsUnrouteRequired || force) {
                 if (aidRouteResolved) {

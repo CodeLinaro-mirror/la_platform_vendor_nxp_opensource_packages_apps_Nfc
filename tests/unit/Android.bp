@@ -11,9 +11,9 @@ android_test {
         "android.test.runner",
         "android.test.base",
         "android.test.mock",
-        "com.nxp.nfc.nq",
         "framework-nfc.impl",
         "unsupportedappusage",
+        "com.nxp.nfc.nq",
     ],
 
     static_libs: [
@@ -38,9 +38,10 @@ android_test {
 
     // Include all test java files.
     srcs: [
-      "src/**/*.java",
-      ":nqnfc-sources",
-       ":framework-nfc-updatable-sources",
+        "src/**/*.java",
+        // TODO(b/263565193): Temp hack until NFC APK can link against module_current.
+        ":framework-nfc-updatable-sources",
+        ":nqnfc-sources",
     ],
     uses_libs: ["com.nxp.nfc.nq"],
 

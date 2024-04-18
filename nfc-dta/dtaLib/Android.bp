@@ -41,8 +41,8 @@ cc_library_shared {
         "vendor/nxp/opensource/commonsys/packages/apps/Nfc/nfc-dta/dtaPlatform/phInfra/inc",
         "vendor/nxp/opensource/commonsys/packages/apps/Nfc/nfc-dta/dtaPlatform/phDtaOsal/inc",
         "vendor/nxp/opensource/commonsys/packages/apps/Nfc/nfc-dta/dtaPlatform/phDtaOsal/src/comps/android/inc",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/gki/common/",
-        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/gki/ulinux/",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/gki/common/",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/gki/ulinux/",
     ],
     local_include_dirs: [
         "inc/",

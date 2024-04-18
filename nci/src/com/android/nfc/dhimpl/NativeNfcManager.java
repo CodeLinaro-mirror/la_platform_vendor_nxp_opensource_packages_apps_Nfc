@@ -44,6 +44,8 @@ import android.util.Log;
 import com.android.nfc.DeviceHost;
 import com.android.nfc.NfcDiscoveryParameters;
 import java.io.FileDescriptor;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -220,6 +222,13 @@ public class NativeNfcManager implements DeviceHost {
         doFactoryReset();
     }
 
+    private native boolean doSetPowerSavingMode(boolean flag);
+
+    @Override
+    public boolean setPowerSavingMode(boolean flag) {
+        return doSetPowerSavingMode(flag);
+    }
+
     private native boolean doSetULPDetMode(boolean flag);
 
     @Override
@@ -261,13 +270,6 @@ public class NativeNfcManager implements DeviceHost {
 
     @Override
     public native boolean sendRawFrame(byte[] data);
-
-    public native boolean doClearRoutingEntry(int type );
-
-    @Override
-    public boolean clearRoutingEntry( int type ) {
-        return(doClearRoutingEntry( type ));
-    }
 
     public native boolean doSetRoutingEntry(int type, int value, int route, int power);
     @Override
@@ -313,9 +315,6 @@ public class NativeNfcManager implements DeviceHost {
 
     @Override
     public native boolean commitRouting();
-
-    @Override
-    public native int doChangeDiscoveryTech(int pollTech, int listenTech);
 
     @Override
     public native void setEmptyAidRoute(int deafultAidroute);
@@ -667,15 +666,15 @@ public class NativeNfcManager implements DeviceHost {
         Bundle frame = new Bundle();
         final int header_len = 2;
         int pos = header_len;
-        final int TLV_type_offset = 0;
-        final int TLV_len_offset = 1;
-        final int TLV_timestamp_offset = 2;
-        final int TLV_gain_offset = 6;
-        final int TLV_data_offset = 7;
+        final int TLV_len_offset = 0;
+        final int TLV_type_offset = 2;
+        final int TLV_timestamp_offset = 3;
+        final int TLV_gain_offset = 7;
+        final int TLV_data_offset = 8;
         while (pos + TLV_len_offset < data_len) {
         int type = p_data[pos + TLV_type_offset];
         int length = p_data[pos + TLV_len_offset];
-        if (pos + length + 2 > data_len) {
+        if (pos + length + 1 > data_len) {
             // Frame is bigger than buffer.
             Log.e(TAG, "Polling frame data is longer than buffer data length.");
             break;
@@ -717,17 +716,28 @@ public class NativeNfcManager implements DeviceHost {
             frame.putByte(PollingFrame.KEY_POLLING_LOOP_GAIN, gain);
         }
         if (pos + TLV_timestamp_offset + 3 < data_len) {
-            long timestamp =
-                ((long) p_data[pos + TLV_timestamp_offset] << 24L) |
-                ((long) p_data[pos + TLV_timestamp_offset + 1] << 16L) |
-                ((long) p_data[pos + TLV_timestamp_offset + 2] << 8L) |
-                ((long) p_data[pos + TLV_timestamp_offset + 3]);
-            frame.putLong(PollingFrame.KEY_POLLING_LOOP_TIMESTAMP, timestamp);
+            int timestamp = ByteBuffer.wrap(p_data, pos + TLV_timestamp_offset, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+            frame.putInt(PollingFrame.KEY_POLLING_LOOP_TIMESTAMP, timestamp);
         }
         pos += (length + 2);
         }
         mListener.onPollingLoopDetected(frame);
     }
+
+    @Override
+    public native void setDiscoveryTech(int pollTech, int listenTech);
+
+    @Override
+    public native void resetDiscoveryTech();
+
+    @Override
+    public native void clearRoutingEntry(int clearFlags);
+
+    @Override
+    public native void setIsoDepProtocolRoute(int route);
+
+    @Override
+    public native void setTechnologyABRoute(int route);
 
     /**
      * Notifies Tag abort operation

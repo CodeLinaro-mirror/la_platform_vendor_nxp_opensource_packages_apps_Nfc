@@ -188,6 +188,11 @@ public class RegisteredServicesCache {
                 final int uid = intent.getIntExtra(Intent.EXTRA_UID, -1);
                 String action = intent.getAction();
                 if (DEBUG) Log.d(TAG, "Intent action: " + action);
+
+                if (RoutingOptionManager.getInstance().isRoutingTableOverrided()) {
+                    if (DEBUG) Log.d(TAG, "Routing table overrided. Skip invalidateCache()");
+                }
+
                 if (uid != -1) {
                     int currentUser = ActivityManager.getCurrentUser();
                     if (currentUser == getProfileParentId(UserHandle.
@@ -478,6 +483,8 @@ public class RegisteredServicesCache {
             Log.i(TAG, "current user: " + ActivityManager.getCurrentUser() +
                     ", is managed profile : " + isManagedProfile );
             boolean isChecked = !(isManagedProfile);
+            // TODO: b/313040065 temperatory set isChecked always true due to there's no UI in AOSP
+            isChecked = true;
 
             for (ApduServiceInfo service : validOtherServices) {
                 Log.d(TAG, "update valid otherService: " + service.getComponent()
