@@ -659,11 +659,10 @@ public class NativeNfcManager implements DeviceHost {
         mListener.onEeUpdated();
     }
 
-    private void notifyPollingLoopFrame(int data_len, byte[] p_data) {
+    public void notifyPollingLoopFrame(int data_len, byte[] p_data) {
         if (data_len < MIN_POLLING_FRAME_TLV_SIZE) {
             return;
         }
-        Bundle frame = new Bundle();
         final int header_len = 2;
         int pos = header_len;
         final int TLV_len_offset = 0;
@@ -672,6 +671,8 @@ public class NativeNfcManager implements DeviceHost {
         final int TLV_gain_offset = 7;
         final int TLV_data_offset = 8;
         while (pos + TLV_len_offset < data_len) {
+        @PollingFrame.PollingFrameType int frameType;
+        Bundle frame = new Bundle();
         int type = p_data[pos + TLV_type_offset];
         int length = p_data[pos + TLV_len_offset];
         if (pos + length + 1 > data_len) {
@@ -681,47 +682,37 @@ public class NativeNfcManager implements DeviceHost {
         }
         switch (type) {
             case TAG_FIELD_CHANGE:
-                frame.putChar(
-                    PollingFrame.KEY_POLLING_LOOP_TYPE,
-                    p_data[pos + TLV_data_offset] != 0x00
+                frameType = p_data[pos + TLV_data_offset] != 0x00
                         ? (char)PollingFrame.POLLING_LOOP_TYPE_ON
-                        : (char)PollingFrame.POLLING_LOOP_TYPE_OFF);
+                        : (char)PollingFrame.POLLING_LOOP_TYPE_OFF;
                 break;
             case TAG_NFC_A:
-                frame.putChar(PollingFrame.KEY_POLLING_LOOP_TYPE,
-                    (char)PollingFrame.POLLING_LOOP_TYPE_A);
+                frameType = (char)PollingFrame.POLLING_LOOP_TYPE_A;
                 break;
             case TAG_NFC_B:
-                frame.putChar(PollingFrame.KEY_POLLING_LOOP_TYPE,
-                    (char)PollingFrame.POLLING_LOOP_TYPE_B);
+                frameType = (char)PollingFrame.POLLING_LOOP_TYPE_B;
                 break;
             case TAG_NFC_F:
-                frame.putChar(PollingFrame.KEY_POLLING_LOOP_TYPE,
-                    (char)PollingFrame.POLLING_LOOP_TYPE_F);
+                frameType = (char)PollingFrame.POLLING_LOOP_TYPE_F;
                 break;
             case TAG_NFC_UNKNOWN:
-                frame.putChar(
-                    PollingFrame.KEY_POLLING_LOOP_TYPE,
-                    (char)PollingFrame.POLLING_LOOP_TYPE_UNKNOWN);
-                frame.putByteArray(
-                    PollingFrame.KEY_POLLING_LOOP_DATA,
-                    Arrays.copyOfRange(
-                        p_data, pos + TLV_data_offset, pos + TLV_timestamp_offset + length));
+                frameType = (char)PollingFrame.POLLING_LOOP_TYPE_UNKNOWN;
                 break;
             default:
                 Log.e(TAG, "Unknown polling loop tag type.");
+		return;
         }
         if (pos + TLV_gain_offset <= data_len) {
             byte gain = p_data[pos + TLV_gain_offset];
-            frame.putByte(PollingFrame.KEY_POLLING_LOOP_GAIN, gain);
+            frame.putByte("android.nfc.cardemulation.GAIN", gain);
         }
         if (pos + TLV_timestamp_offset + 3 < data_len) {
             int timestamp = ByteBuffer.wrap(p_data, pos + TLV_timestamp_offset, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
-            frame.putInt(PollingFrame.KEY_POLLING_LOOP_TIMESTAMP, timestamp);
+            frame.putInt("android.nfc.cardemulation.TIMESTAMP", timestamp);
         }
         pos += (length + 2);
-        }
         mListener.onPollingLoopDetected(frame);
+        }
     }
 
     @Override
