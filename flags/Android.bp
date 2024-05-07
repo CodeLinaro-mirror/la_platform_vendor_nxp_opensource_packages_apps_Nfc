@@ -21,6 +21,7 @@ package {
 aconfig_declarations {
     name: "nqnfc_aconfig_flags",
     package: "com.android.nfc.nqflags",
+    container: "system",
     srcs: ["nfc_flags.aconfig"],
 }
 
