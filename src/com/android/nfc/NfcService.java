@@ -74,6 +74,7 @@ import android.nfc.Constants;
 import android.nfc.NfcFrameworkInitializer;
 import android.nfc.NfcServiceManager;
 import android.nfc.cardemulation.CardEmulation;
+import android.nfc.cardemulation.PollingFrame;
 import android.nfc.ErrorCodes;
 import android.nfc.FormatException;
 import android.nfc.IAppCallback;
@@ -2457,7 +2458,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public void notifyPollingLoop(Bundle frame) {
+        public void notifyPollingLoop(PollingFrame frame) {
         }
 
         @Override
