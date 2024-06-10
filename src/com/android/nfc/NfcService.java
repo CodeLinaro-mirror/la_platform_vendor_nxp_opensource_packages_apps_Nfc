@@ -1836,7 +1836,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public boolean setObserveMode(boolean enable) {
+        public boolean setObserveMode(boolean enable, String packageName) {
             long token = Binder.clearCallingIdentity();
             try {
                 if (!android.nfc.Flags.nfcObserveMode()) {
@@ -1849,7 +1849,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             int callingUid = Binder.getCallingUid();
             UserHandle user = Binder.getCallingUserHandle();
             // Allow non-foreground callers with system uid or default payment service.
-            String packageName = getPackageNameFromUid(callingUid);
             if (packageName != null) {
                 String defaultPaymentService = Settings.Secure.getString(
                     mContext.createContextAsUser(user, 0).getContentResolver(),
