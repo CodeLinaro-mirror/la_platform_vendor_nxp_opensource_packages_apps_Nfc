@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ *Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 package com.android.nfc.cardemulation;
 
 import static org.mockito.ArgumentMatchers.anyString;
@@ -36,7 +41,7 @@ import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.nfc.cardemulation.RegisteredAidCache.AidResolveInfo;
 import com.android.nfc.NfcStatsLog;
-import com.android.nfc.flags.Flags;
+import com.android.nfc.nqflags.Flags;
 
 import java.util.ArrayList;
 import java.util.List;

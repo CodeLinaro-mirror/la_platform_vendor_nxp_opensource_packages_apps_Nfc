@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
@@ -27,7 +26,7 @@ aconfig_declarations {
 
 java_aconfig_library {
     name: "nqnfc_aconfig_flags_lib",
-    aconfig_declarations: "nfc_aconfig_flags",
+    aconfig_declarations: "nqnfc_aconfig_flags",
     min_sdk_version: "33",
     apex_available: [
         "//apex_available:platform",

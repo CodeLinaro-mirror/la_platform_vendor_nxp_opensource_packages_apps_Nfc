@@ -32,6 +32,11 @@
 *  Copyright 2018-2022 NXP
 *
 ******************************************************************************/
+/*
+ *Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 package com.android.nfc.cardemulation;
 
 import android.app.KeyguardManager;
@@ -65,7 +70,7 @@ import com.android.nfc.NfcService;
 import com.android.nfc.NfcStatsLog;
 import com.android.nfc.cardemulation.RegisteredAidCache.AidResolveInfo;
 import com.android.nfc.cardemulation.RegisteredServicesCache.DynamicSettings;
-import com.android.nfc.flags.Flags;
+import com.android.nfc.nqflags.Flags;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;

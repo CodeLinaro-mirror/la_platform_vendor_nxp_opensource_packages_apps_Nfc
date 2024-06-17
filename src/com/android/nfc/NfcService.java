@@ -34,7 +34,7 @@
 ******************************************************************************/
 /*
  *Changes from Qualcomm Innovation Center are provided under the following license:
- *Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *Copyright (c) 2022,2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 package com.android.nfc;
@@ -137,7 +137,7 @@ import com.android.nfc.DeviceHost.NfcDepEndpoint;
 import com.android.nfc.DeviceHost.TagEndpoint;
 import com.android.nfc.dhimpl.NativeNfcManager;
 import com.android.nfc.dhimpl.NativeNfcSecureElement;
-import com.android.nfc.flags.FeatureFlags;
+import com.android.nfc.nqflags.FeatureFlags;
 import com.android.nfc.Utils;
 import com.android.nfc.handover.HandoverDataParser;
 import com.nxp.nfc.INxpNfcAdapter;
@@ -598,7 +598,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     private int SELFTEST_SWP = 0x07;
     private  INfcOemExtensionCallback mNfcOemExtensionCallback = null;
 
-    private final FeatureFlags mFeatureFlags = new com.android.nfc.flags.FeatureFlagsImpl();
+    private final FeatureFlags mFeatureFlags = new com.android.nfc.nqflags.FeatureFlagsImpl();
 
     public static NfcService getInstance() {
         return sService;
