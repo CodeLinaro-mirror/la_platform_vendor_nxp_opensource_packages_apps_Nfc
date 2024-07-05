@@ -32,6 +32,11 @@
 *  Copyright 2018-2023 NXP
 *
 ******************************************************************************/
+/*
+ *Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 package com.android.nfc.dhimpl;
 
 import android.content.Context;
@@ -156,7 +161,7 @@ public class NativeNfcManager implements DeviceHost {
                 /*
                  * While doing code integration, please make sure the library name
                  * matches with the LOCAL_MODULE name mentioned in the Makefile.
-                 * Makefile path: nci/SN100x/jni/Android.mk
+                 * Makefile path: nci/jni/Android.mk
                  */
                 libraryName = "sn100nfc_nci_jni";
                 break;
