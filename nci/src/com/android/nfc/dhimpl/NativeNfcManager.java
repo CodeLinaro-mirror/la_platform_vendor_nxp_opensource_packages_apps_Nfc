@@ -29,7 +29,7 @@
 *  See the License for the specific language governing permissions and
 *  limitations under the License.
 *
-*  Copyright 2018-2023 NXP
+*  Copyright 2018-2024 NXP
 *
 ******************************************************************************/
 /*
@@ -39,26 +39,33 @@
  */
 package com.android.nfc.dhimpl;
 
+import static com.android.nfc.NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__MODE_UNKNOWN;
+import static com.android.nfc.NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__SUPPORT_WITHOUT_RF_DEACTIVATION;
+import static com.android.nfc.NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__SUPPORT_WITH_RF_DEACTIVATION;
+
 import android.content.Context;
-import android.nfc.cardemulation.HostApduService;
 import android.nfc.cardemulation.PollingFrame;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.TagTechnology;
 import android.os.Bundle;
+import android.os.Trace;
 import android.util.Log;
+
 import com.android.nfc.DeviceHost;
 import com.android.nfc.NfcDiscoveryParameters;
+import com.android.nfc.NfcService;
+import com.android.nfc.NfcStatsLog;
+import com.android.nfc.NfcVendorNciResponse;
+import com.android.nfc.NfcProprietaryCaps;
+
 import java.io.FileDescriptor;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Iterator;
-import android.os.SystemProperties;
-
-import android.os.RemoteException;
-import java.util.NoSuchElementException;
-import vendor.nxp.hardware.nfc.V2_0.INqNfc;
 
 /** Native interface to the NFC Manager functions */
 public class NativeNfcManager implements DeviceHost {
@@ -68,24 +75,6 @@ public class NativeNfcManager implements DeviceHost {
     static final int MODE_DEDICATED = 1;
     static final int MODE_NORMAL = 0;
     static final String DRIVER_NAME = "android-nci";
-
-    private static INqNfc mNqHal = null;
-
-    static {
-        String chip_id, libraryToUse;
-
-        //Get Chip-ID
-        chip_id = getChipId();
-        if(null == chip_id) {
-            //Use SN1XX series library as default
-            libraryToUse = "sn100nfc_nci_jni";
-        } else {
-            //Get library on the basis of the NFC HW
-            libraryToUse = getLibraryName(chip_id);
-        }
-        Log.d(TAG, "Loading library: "+libraryToUse);
-        System.loadLibrary(libraryToUse);
-    }
 
     /* Native structure */
     private long mNative;
@@ -99,16 +88,25 @@ public class NativeNfcManager implements DeviceHost {
 
     private final Object mLock = new Object();
     private final HashMap<Integer, byte[]> mT3tIdentifiers = new HashMap<Integer, byte[]>();
-
+    private NfcProprietaryCaps mProprietaryCaps = null;
     private static final int MIN_POLLING_FRAME_TLV_SIZE = 5;
     private static final int TAG_FIELD_CHANGE = 0;
     private static final int TAG_NFC_A = 1;
     private static final int TAG_NFC_B = 2;
     private static final int TAG_NFC_F = 3;
     private static final int TAG_NFC_UNKNOWN = 7;
+    private static final int NCI_HEADER_MIN_LEN = 3;
+    private static final int NCI_GID_INDEX = 0;
+    private static final int NCI_OID_INDEX = 1;
+    private static final int OP_CODE_INDEX = 3;
+
+    private void loadLibrary() {
+        System.loadLibrary("nfc_nci_jni");
+    }
 
     public NativeNfcManager(Context context, DeviceHostListener listener) {
         mListener = listener;
+        loadLibrary();
         initializeNativeStructure();
         mContext = context;
         mMposMgr = new NativeNfcMposManager();
@@ -116,64 +114,9 @@ public class NativeNfcManager implements DeviceHost {
         mExtFieldMgr = new NativeExtFieldDetectManager();
     }
 
-    //Static function to getChip-ID
-    private static String getChipId() {
-        String chipIdValue = null;
-        boolean isHalServiceSupported = false;
-
-        try {
-            if(mNqHal == null) {
-                Log.d(TAG, "INqNfc 2.0 interface not initialized yet. Getting INqNfcV2_0 Service");
-                mNqHal = INqNfc.getService();
-            }
-            if(mNqHal != null) {
-                chipIdValue = mNqHal.getNfcChipId();
-                isHalServiceSupported = true;
-                Log.d(TAG, "Chip-ID received from HAL interface: "+chipIdValue);
-            }
-        }
-        catch(RemoteException | NoSuchElementException e) {
-            Log.e(TAG, "INqNfc 2.0 element not supported");
-        }
-
-        if(isHalServiceSupported == false) {
-            Log.d(TAG, "Reading system property for chip-id.");
-            chipIdValue = SystemProperties.get("vendor.qti.nfc.chipid", "0xc1");
-            Log.d(TAG, "Chip-ID received from system property: "+chipIdValue);
-        }
-
-        return chipIdValue;
-    }
-
-    private static String getLibraryName(String chip_id) {
-        String libraryName;
-
-        switch(chip_id) {
-            case "0xa3":
-            case "0xa4":
-            case "0xc1":
-                libraryName = "sn100nfc_nci_jni";
-                break;
-            case "0x51":
-                libraryName = "nqnfc_nci_jni";
-                break;
-            default:
-                /*
-                 * While doing code integration, please make sure the library name
-                 * matches with the LOCAL_MODULE name mentioned in the Makefile.
-                 * Makefile path: nci/jni/Android.mk
-                 */
-                libraryName = "sn100nfc_nci_jni";
-                break;
-        }
-        return libraryName;
-    }
-
     public native boolean initializeNativeStructure();
 
     private native boolean doDownload();
-
-    public native int doGetLastError();
 
     @Override
     public boolean checkFirmware() {
@@ -201,6 +144,12 @@ public class NativeNfcManager implements DeviceHost {
     @Override
     public boolean initialize() {
         boolean ret = doInitialize();
+        if (mContext.getResources().getBoolean(
+                com.android.nfc.R.bool.nfc_proprietary_getcaps_supported)) {
+            mProprietaryCaps = NfcProprietaryCaps.createFromByteArray(getProprietaryCaps());
+            Log.i(TAG, "mProprietaryCaps: " + mProprietaryCaps);
+            logProprietaryCaps(mProprietaryCaps);
+        }
         mIsoDepMaxTransceiveLength = getIsoDepMaxTransceiveLength();
         return ret;
     }
@@ -234,13 +183,6 @@ public class NativeNfcManager implements DeviceHost {
         return doSetPowerSavingMode(flag);
     }
 
-    private native boolean doSetULPDetMode(boolean flag);
-
-    @Override
-    public boolean setULPDetMode(boolean flag) {
-        return doSetULPDetMode(flag);
-    }
-
     private native void doShutdown();
 
     @Override
@@ -250,14 +192,29 @@ public class NativeNfcManager implements DeviceHost {
 
     private native boolean doDeinitialize();
 
+    /**
+     * Injects a NTF to the HAL.
+     *
+     * This is only used for testing.
+     */
+    public native void injectNtf(byte[] data);
+
     @Override
     public boolean isObserveModeSupported() {
         if (!android.nfc.Flags.nfcObserveMode()) {
             return false;
         }
-
-        return mContext.getResources().getBoolean(
-            com.android.nfc.R.bool.config_nfcObserveModeSupported);
+        // Check if the device overlay and HAL capabilities indicate that observe
+        // mode is supported.
+        if (!mContext.getResources().getBoolean(
+                com.android.nfc.R.bool.nfc_observe_mode_supported)) {
+            return false;
+        }
+        if (mContext.getResources().getBoolean(
+                com.android.nfc.R.bool.nfc_proprietary_getcaps_supported)) {
+            return isObserveModeSupportedCaps(mProprietaryCaps);
+        }
+        return true;
     }
 
     @Override
@@ -348,6 +305,9 @@ public class NativeNfcManager implements DeviceHost {
     public native int doNfcSelfTest(int type);
 
     @Override
+    public native boolean isObserveModeEnabled();
+
+    @Override
     public void registerT3tIdentifier(byte[] t3tIdentifier) {
         synchronized (mLock) {
             int handle = doRegisterT3tIdentifier(t3tIdentifier);
@@ -399,7 +359,6 @@ public class NativeNfcManager implements DeviceHost {
             boolean enableLowPowerPolling,
             boolean enableReaderMode,
             boolean enableHostRouting,
-            boolean enableP2p,
             boolean restart);
     @Override
     public void enableDiscovery(NfcDiscoveryParameters params, boolean restart) {
@@ -408,7 +367,6 @@ public class NativeNfcManager implements DeviceHost {
                 params.shouldEnableLowPowerDiscovery(),
                 params.shouldEnableReaderMode(),
                 params.shouldEnableHostRouting(),
-                params.shouldEnableP2p(),
                 restart);
     }
     @Override
@@ -525,20 +483,6 @@ public class NativeNfcManager implements DeviceHost {
 
     }
 
-    private native void doSetP2pInitiatorModes(int modes);
-
-    @Override
-    public void setP2pInitiatorModes(int modes) {
-        doSetP2pInitiatorModes(modes);
-    }
-
-    private native void doSetP2pTargetModes(int modes);
-
-    @Override
-    public void setP2pTargetModes(int modes) {
-        doSetP2pTargetModes(modes);
-    }
-
     @Override
     public boolean getExtendedLengthApdusSupported() {
         /* 261 is the default size if extended length frames aren't supported */
@@ -551,22 +495,6 @@ public class NativeNfcManager implements DeviceHost {
     @Override
     public void dump(FileDescriptor fd) {
         doDump(fd);
-    }
-
-    private native void doEnableScreenOffSuspend();
-
-    @Override
-    public boolean enableScreenOffSuspend() {
-        doEnableScreenOffSuspend();
-        return true;
-    }
-
-    private native void doDisableScreenOffSuspend();
-
-    @Override
-    public boolean disableScreenOffSuspend() {
-        doDisableScreenOffSuspend();
-        return true;
     }
 
     private native void doRestartRFDiscovery();
@@ -583,9 +511,6 @@ public class NativeNfcManager implements DeviceHost {
         return doSetNfcSecure(enable);
     }
 
-    @Override
-    public native String getNfaStorageDir();
-
     private native void doStartStopPolling(boolean start);
 
     @Override
@@ -598,6 +523,15 @@ public class NativeNfcManager implements DeviceHost {
 
     @Override
     public native int getMaxRoutingTableSize();
+
+    private native NfcVendorNciResponse nativeSendRawVendorCmd(
+            int mt, int gid, int oid, byte[] payload);
+
+    @Override
+    public NfcVendorNciResponse sendRawVendorCmd(int mt, int gid, int oid, byte[] payload) {
+        NfcVendorNciResponse res= nativeSendRawVendorCmd(mt, gid, oid, payload);
+        return res;
+    }
 
     /** Notifies Ndef Message (TODO: rename into notifyTargetDiscovered) */
     private void notifyNdefMessageListeners(NativeNfcTag tag) {
@@ -668,55 +602,91 @@ public class NativeNfcManager implements DeviceHost {
         if (data_len < MIN_POLLING_FRAME_TLV_SIZE) {
             return;
         }
-        final int header_len = 2;
+        Trace.beginSection("notifyPollingLoopFrame");
+        final int header_len = 4;
         int pos = header_len;
-        final int TLV_len_offset = 0;
-        final int TLV_type_offset = 2;
+        final int TLV_header_len = 3;
+        final int TLV_type_offset = 0;
+        final int TLV_len_offset = 2;
         final int TLV_timestamp_offset = 3;
         final int TLV_gain_offset = 7;
         final int TLV_data_offset = 8;
+        ArrayList<PollingFrame> frames = new ArrayList<PollingFrame>();
+        if (data_len >= TLV_header_len) {
+            int tlv_len = Byte.toUnsignedInt(p_data[TLV_len_offset]) + TLV_header_len;
+            if (tlv_len < data_len) {
+                data_len = tlv_len;
+            }
+        }
         while (pos + TLV_len_offset < data_len) {
-        @PollingFrame.PollingFrameType int frameType;
-        Bundle frame = new Bundle();
-        int type = p_data[pos + TLV_type_offset];
-        int length = p_data[pos + TLV_len_offset];
-        if (pos + length + 1 > data_len) {
-            // Frame is bigger than buffer.
-            Log.e(TAG, "Polling frame data is longer than buffer data length.");
-            break;
+            @PollingFrame.PollingFrameType int frameType;
+            Bundle frame = new Bundle();
+            int type = p_data[pos + TLV_type_offset];
+            int length = p_data[pos + TLV_len_offset];
+            if (TLV_len_offset + length < TLV_gain_offset ) {
+                Log.e(TAG, "Length (" + length + ") is less than a polling frame, dropping.");
+                break;
+            }
+            if (pos + TLV_header_len + length > data_len) {
+                // Frame is bigger than buffer.
+                Log.e(TAG, "Polling frame data ("+ pos + ", " + length
+                        + ") is longer than buffer data length (" + data_len + ").");
+                break;
+            }
+            switch (type) {
+                case TAG_FIELD_CHANGE:
+                    frameType = p_data[pos + TLV_data_offset] != 0x00
+                                    ? PollingFrame.POLLING_LOOP_TYPE_ON
+                                    : PollingFrame.POLLING_LOOP_TYPE_OFF;
+                    break;
+                case TAG_NFC_A:
+                    frameType = PollingFrame.POLLING_LOOP_TYPE_A;
+                    break;
+                case TAG_NFC_B:
+                    frameType = PollingFrame.POLLING_LOOP_TYPE_B;
+                    break;
+                case TAG_NFC_F:
+                    frameType = PollingFrame.POLLING_LOOP_TYPE_F;
+                    break;
+                case TAG_NFC_UNKNOWN:
+                    frameType = PollingFrame.POLLING_LOOP_TYPE_UNKNOWN;
+                    break;
+                default:
+                    Log.e(TAG, "Unknown polling loop tag type.");
+                    return;
+            }
+            byte[] frameData = null;
+            if (pos + TLV_header_len + length <= data_len) {
+                frameData = Arrays.copyOfRange(p_data, pos + TLV_data_offset,
+                    pos + TLV_header_len + length);
+            }
+            int gain = -1;
+            if (pos + TLV_gain_offset <= data_len) {
+                gain = Byte.toUnsignedInt(p_data[pos + TLV_gain_offset]);
+                if (gain == 0XFF) {
+                    gain = -1;
+                }
+            }
+            long timestamp = 0;
+            if (pos + TLV_timestamp_offset + 3 < data_len) {
+                timestamp = Integer.toUnsignedLong(ByteBuffer.wrap(p_data,
+                        pos + TLV_timestamp_offset, 4).order(ByteOrder.BIG_ENDIAN).getInt());
+            }
+            pos += (TLV_header_len + length);
+            frames.add(new PollingFrame(frameType, frameData, gain, timestamp, false));
         }
-        switch (type) {
-            case TAG_FIELD_CHANGE:
-                frameType = p_data[pos + TLV_data_offset] != 0x00
-                        ? (char)PollingFrame.POLLING_LOOP_TYPE_ON
-                        : (char)PollingFrame.POLLING_LOOP_TYPE_OFF;
-                break;
-            case TAG_NFC_A:
-                frameType = (char)PollingFrame.POLLING_LOOP_TYPE_A;
-                break;
-            case TAG_NFC_B:
-                frameType = (char)PollingFrame.POLLING_LOOP_TYPE_B;
-                break;
-            case TAG_NFC_F:
-                frameType = (char)PollingFrame.POLLING_LOOP_TYPE_F;
-                break;
-            case TAG_NFC_UNKNOWN:
-                frameType = (char)PollingFrame.POLLING_LOOP_TYPE_UNKNOWN;
-                break;
-            default:
-                Log.e(TAG, "Unknown polling loop tag type.");
-		return;
+        mListener.onPollingLoopDetected(frames);
+        Trace.endSection();
+    }
+
+    private void notifyVendorSpecificEvent(int event, int dataLen, byte[] pData) {
+        if (pData.length < NCI_HEADER_MIN_LEN || dataLen != pData.length) {
+            Log.e(TAG, "Invalid data");
+            return;
         }
-        if (pos + TLV_gain_offset <= data_len) {
-            byte gain = p_data[pos + TLV_gain_offset];
-            frame.putByte("android.nfc.cardemulation.GAIN", gain);
-        }
-        if (pos + TLV_timestamp_offset + 3 < data_len) {
-            int timestamp = ByteBuffer.wrap(p_data, pos + TLV_timestamp_offset, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
-            frame.putInt("android.nfc.cardemulation.TIMESTAMP", timestamp);
-        }
-        pos += (length + 2);
-        mListener.onPollingLoopDetected(frame);
+        if (android.nfc.Flags.nfcVendorCmd()) {
+            mListener.onVendorSpecificEvent(pData[NCI_GID_INDEX], pData[NCI_OID_INDEX],
+                    Arrays.copyOfRange(pData, OP_CODE_INDEX, pData.length));
         }
     }
 
@@ -734,6 +704,56 @@ public class NativeNfcManager implements DeviceHost {
 
     @Override
     public native void setTechnologyABRoute(int route);
+
+    private native byte[] getProprietaryCaps();
+
+    @Override
+    public native void enableVendorNciNotifications(boolean enabled);
+
+    private void notifyCommandTimeout() {
+        NfcService.getInstance().storeNativeCrashLogs();
+    }
+
+    /** wrappers for values */
+    private static final int CAPS_OBSERVE_MODE_UNKNOWN =
+            NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__MODE_UNKNOWN;
+    private static final int CAPS_OBSERVE_MODE_SUPPORT_WITH_RF_DEACTIVATION =
+          NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__SUPPORT_WITH_RF_DEACTIVATION;
+    private static final int CAPS_OBSERVE_MODE_SUPPORT_WITHOUT_RF_DEACTIVATION =
+       NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__SUPPORT_WITHOUT_RF_DEACTIVATION;
+    private static final int CAPS_OBSERVE_MODE_NOT_SUPPORTED =
+            NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__NOT_SUPPORTED;
+
+    private static boolean isObserveModeSupportedCaps(NfcProprietaryCaps proprietaryCaps) {
+        return proprietaryCaps.getPassiveObserveMode()
+            != NfcProprietaryCaps.PassiveObserveMode.NOT_SUPPORTED;
+    }
+
+    private static void logProprietaryCaps(NfcProprietaryCaps proprietaryCaps) {
+        int observeModeStatsd = CAPS_OBSERVE_MODE_UNKNOWN;
+
+        NfcProprietaryCaps.PassiveObserveMode mode = proprietaryCaps.getPassiveObserveMode();
+
+        if (mode == NfcProprietaryCaps.PassiveObserveMode.SUPPORT_WITH_RF_DEACTIVATION) {
+            observeModeStatsd = CAPS_OBSERVE_MODE_SUPPORT_WITH_RF_DEACTIVATION;
+        } else if (mode == NfcProprietaryCaps.PassiveObserveMode.SUPPORT_WITHOUT_RF_DEACTIVATION) {
+            observeModeStatsd = CAPS_OBSERVE_MODE_SUPPORT_WITHOUT_RF_DEACTIVATION;
+        } else if (mode == NfcProprietaryCaps.PassiveObserveMode.NOT_SUPPORTED) {
+            observeModeStatsd = CAPS_OBSERVE_MODE_NOT_SUPPORTED;
+        }
+
+        NfcStatsLog.write(NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED,
+                observeModeStatsd,
+                proprietaryCaps.isPollingFrameNotificationSupported(),
+                proprietaryCaps.isPowerSavingModeSupported(),
+                proprietaryCaps.isAutotransactPollingLoopFilterSupported());
+    }
+
+    private native void doSetNfceePowerAndLinkCtrl(boolean enable);
+    @Override
+    public void setNfceePowerAndLinkCtrl(boolean enable) {
+        doSetNfceePowerAndLinkCtrl(enable);
+    }
 
     /**
      * Notifies Tag abort operation
@@ -761,4 +781,8 @@ public class NativeNfcManager implements DeviceHost {
         mListener.onTZNfcSecureZoneReported();
     }
 
+    @Override
+    public native boolean isRemovalDetectionInPollModeSupported();
+    @Override
+    public native void startRemovalDetectionProcedure(int waitTimeout);
 }

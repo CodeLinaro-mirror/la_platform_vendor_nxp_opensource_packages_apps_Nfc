@@ -21,13 +21,12 @@ import android.app.ActivityManager.RunningAppProcessInfo;
 import android.app.Application;
 import android.content.pm.PackageManager;
 import android.nfc.Constants;
+import android.os.Looper;
 import android.os.Process;
 import android.os.UserHandle;
-import android.view.ThreadedRenderer;
 
 import java.util.Iterator;
 import java.util.List;
-import java.io.File;
 
 public class NfcApplication extends Application {
 

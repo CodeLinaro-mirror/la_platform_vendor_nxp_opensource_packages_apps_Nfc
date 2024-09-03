@@ -54,16 +54,19 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Hashtable;
+import androidx.annotation.VisibleForTesting;
+
 public class AidRoutingManager {
 
     static final String TAG = "AidRoutingManager";
 
-    static final boolean DBG = NfcProperties.debug_enabled().orElse(false);
+    static final boolean DBG = NfcProperties.debug_enabled().orElse(true);
 
     static final int ROUTE_HOST = 0x00;
 
@@ -75,11 +78,11 @@ public class AidRoutingManager {
     static final int AID_MATCHING_PREFIX_ONLY = 0x02;
     // Every routing table entry can be matched either exact or prefix or subset only
     static final int AID_MATCHING_EXACT_OR_SUBSET_OR_PREFIX = 0x03;
-
+    static final int INVALID_POWER_STATE = -1;
     int mDefaultIsoDepRoute;
     //Let mDefaultRoute as default aid route
     int mDefaultRoute;
-
+    int mPowerEmptyAid = INVALID_POWER_STATE;
     int mMaxAidRoutingTableSize;
     int mDefaultAidRoute;
     final byte[] mOffHostRouteUicc;
@@ -113,7 +116,8 @@ public class AidRoutingManager {
 
     RoutingOptionManager mRoutingOptionManager = RoutingOptionManager.getInstance();
     final ActivityManager mActivityManager;
-    final class AidEntry {
+    @VisibleForTesting
+    public final class AidEntry {
         boolean isOnHost;
         String offHostSE;
         int route;
@@ -241,11 +245,13 @@ public class AidRoutingManager {
     //resolution, is routing required or not?
     private boolean isAidEntryUpdated(HashMap<String, Integer> currRouteForAid,
                                                 Map.Entry<String, Integer> aidEntry,
-                                                HashMap<String, Integer> prevPowerForAid){
-        if((currRouteForAid.get(aidEntry.getKey()) != aidEntry.getValue())||
-            (mPowerForAid.get(aidEntry.getKey()) != prevPowerForAid.get(aidEntry.getKey()))){
-                return true;
-            }
+                                                HashMap<String, Integer> prevPowerForAid) {
+        if(!Objects.equals(currRouteForAid.get(aidEntry.getKey()), aidEntry.getValue()) ||
+            !Objects.equals(
+                mPowerForAid.get(aidEntry.getKey()),
+                prevPowerForAid.get(aidEntry.getKey()))) {
+            return true;
+        }
         return false;
     }
 
@@ -357,6 +363,8 @@ public class AidRoutingManager {
             mAidRoutingTable = aidRoutingTable;
             mMaxAidRoutingTableSize = NfcService.getInstance().getAidRoutingTableSize();
             if (DBG) Log.d(TAG, "mMaxAidRoutingTableSize: " + mMaxAidRoutingTableSize);
+            if (mDefaultAidRoute != mDefaultRoute)
+                mPowerEmptyAid = INVALID_POWER_STATE;
             mDefaultRoute = mDefaultAidRoute;
             for(int index=0; index < seList.size(); index++) {
                 mDefaultRoute = seList.get(index);
@@ -463,6 +471,9 @@ public class AidRoutingManager {
                             entry.isOnHost = false;
                             default_route_power_state = RegisteredAidCache.POWER_STATE_ALL;
                         }
+                        if((mPowerEmptyAid != INVALID_POWER_STATE) && (mPowerEmptyAid != default_route_power_state))
+                            isPowerStateUpdated = true;
+                        mPowerEmptyAid = default_route_power_state;
                         entry.aidInfo = RegisteredAidCache.AID_ROUTE_QUAL_PREFIX;
                         entry.power = default_route_power_state;
 
@@ -625,5 +636,10 @@ public class AidRoutingManager {
                 proto.end(token);
             }
         }
+    }
+
+    @VisibleForTesting
+    public boolean isRoutingTableCleared() {
+        return mAidRoutingTable.size() == 0 && mRouteForAid.isEmpty() && mPowerForAid.isEmpty();
     }
 }

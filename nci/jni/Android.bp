@@ -1,11 +1,10 @@
 package {
+    default_team: "trendy_team_fwk_nfc",
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 cc_library_shared {
-    name: "libsn100nfc_nci_jni",
-    system_ext_specific: true,
-
+    name: "libnfc_nci_jni",
     cflags:
      ["-DNXP_EXTNS=TRUE",
       "-DNXP_SRD=TRUE",]  + [
@@ -36,35 +35,58 @@ cc_library_shared {
         "libcutils",
         "libutils",
         "liblog",
-        "libsn100nfc-nci",
         "libbase",
-        "libstatslog_nfc",
-        "vendor.nxp.hardware.nfc@2.0",
+        // Treble configuration
+        "libhidlbase",
+        "libutils",
+        "libbinder_ndk",
+        "libstatssocket",
+        "libz",
+        "vendor.nxp.nxpnfc@2.0",
+        "vendor.nxp.nxpnfc_aidl-V1-ndk",
     ],
     product_variables: {
         debuggable: {
             cflags: [
                 "-DDCHECK_ALWAYS_ON",
-                "-DDTA_ENABLED"
+                "-DDTA_ENABLED",
             ],
         },
     },
 
     static_libs: [
+        "android.hardware.nfc@1.0",
+        "android.hardware.nfc@1.1",
+        "android.hardware.nfc@1.2",
+        // Add for AIDL
+        "android.hardware.nfc-V1-ndk",
+        "libnfcutils",
+        "libnfc-nci",
+        "libnfc-nci_flags",
+        "libstatslog_nfc",
         "android_nfc_flags_aconfig_c_lib",
         "server_configurable_flags",
-        "libxml2"
+        "libxml2",
+    ],
+
+    defaults: [
+        "aconfig_lib_cc_static_link.defaults",
     ],
 
     sanitize: {
-        cfi: true,
         integer_overflow: true,
         misc_undefined: ["bounds"],
         scs: true,
     },
+    stl: "libc++_static",
     apex_available: [
-         "//apex_available:platform",
-         "com.android.nfcservices"
+        "//apex_available:platform",
+        "com.android.nfcservices",
+    ],
+    required: [
+        // Provide a default libnfc-nci.conf in /system/etc for devices that
+        // does not ship one in /product
+        "libnfc-nci.conf-default",
     ],
 }
 
@@ -74,8 +96,8 @@ cc_test {
     srcs: ["NfcTagTest.cpp"],
 
     shared_libs: [
-        "libsn100nfc-nci",
-        "libsn100nfc_nci_jni",
+        "libnfc-nci",
+        "libnfc_nci_jni",
         "libstatslog_nfc",
     ],
 
@@ -85,7 +107,7 @@ cc_test {
     ],
 
     header_libs: [
-        "jni_headers"
+        "jni_headers",
     ],
 
     include_dirs: [

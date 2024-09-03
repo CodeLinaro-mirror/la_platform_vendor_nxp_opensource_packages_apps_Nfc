@@ -280,7 +280,8 @@ void NfcTagExtns::processActivatedNtf(tNFA_CONN_EVT_DATA* data) {
       // In case activated tag is a multiprotocol tag then store
       // activated tag data because sometimes sleep may not supported by
       // non standard tag during multiprotocol tag detection.
-      if (NfcTag::getInstance().mIsMultiProtocolTag) {
+      if (NfcTag::getInstance().mIsMultiProtocolTag &&
+          data->activated.activate_ntf.protocol == NFA_PROTOCOL_ISO_DEP) {
         clearNonStdTagData();
         memcpy(&(discovery_ntf.rf_tech_param),
                &(activated.activate_ntf.rf_tech_param),
@@ -394,10 +395,6 @@ bool NfcTagExtns::isListenMode(tNFA_ACTIVATED& activated) {
       (NFC_DISCOVERY_TYPE_LISTEN_B ==
        activated.activate_ntf.rf_tech_param.mode) ||
       (NFC_DISCOVERY_TYPE_LISTEN_F ==
-       activated.activate_ntf.rf_tech_param.mode) ||
-      (NFC_DISCOVERY_TYPE_LISTEN_A_ACTIVE ==
-       activated.activate_ntf.rf_tech_param.mode) ||
-      (NFC_DISCOVERY_TYPE_LISTEN_F_ACTIVE ==
        activated.activate_ntf.rf_tech_param.mode) ||
       (NFC_DISCOVERY_TYPE_LISTEN_ISO15693 ==
        activated.activate_ntf.rf_tech_param.mode) ||
@@ -723,7 +720,8 @@ tTagStatus NfcTagExtns::performTagDeactivation() {
     }
   } else {
     if (android::isSeRfActive()) {
-      tNFA_DEACTIVATED deactivated = {NFA_DEACTIVATE_TYPE_IDLE};
+      tNFA_DEACTIVATED deactivated = {NFA_DEACTIVATE_TYPE_IDLE,
+                                      NCI_DEACTIVATE_REASON_DH_REQ};
       NfcTag::getInstance().setDeactivationState(deactivated);
       LOG(DEBUG) << StringPrintf("%s: card emulation on priotiy", __func__);
       ret = TAG_STATUS_LOST;
@@ -880,8 +878,7 @@ tTagStatus NfcTagExtns::checkAndSkipNdef() {
  *******************************************************************************/
 void NfcTagExtns::setRfProtocol(tNFA_INTF_TYPE rfProtocol, uint8_t mode) {
   sTagActivatedProtocol = rfProtocol;
-  if (mode == NFC_DISCOVERY_TYPE_POLL_A ||
-      mode == NFC_DISCOVERY_TYPE_POLL_A_ACTIVE)
+  if (mode == NFC_DISCOVERY_TYPE_POLL_A)
     sTagActivatedMode = TARGET_TYPE_ISO14443_3A;
   else if (mode == NFC_DISCOVERY_TYPE_POLL_B ||
            mode == NFC_DISCOVERY_TYPE_POLL_B_PRIME)
