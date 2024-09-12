@@ -66,6 +66,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.Iterator;
+import android.os.SystemProperties;
+
+import android.os.RemoteException;
+import java.util.NoSuchElementException;
+import vendor.nxp.hardware.nfc.V2_0.INqNfc;
 
 /** Native interface to the NFC Manager functions */
 public class NativeNfcManager implements DeviceHost {
@@ -75,6 +80,8 @@ public class NativeNfcManager implements DeviceHost {
     static final int MODE_DEDICATED = 1;
     static final int MODE_NORMAL = 0;
     static final String DRIVER_NAME = "android-nci";
+
+    private static INqNfc mNqHal = null;
 
     /* Native structure */
     private long mNative;
@@ -99,9 +106,20 @@ public class NativeNfcManager implements DeviceHost {
     private static final int NCI_GID_INDEX = 0;
     private static final int NCI_OID_INDEX = 1;
     private static final int OP_CODE_INDEX = 3;
-
     private void loadLibrary() {
-        System.loadLibrary("nfc_nci_jni");
+        String chip_id, libraryToUse;
+
+        //Get Chip-ID
+        chip_id = getChipId();
+        if(null == chip_id) {
+            //Use SN1XX series library as default
+            libraryToUse = "sn100nfc_nci_jni";
+        } else {
+            //Get library on the basis of the NFC HW
+            libraryToUse = getLibraryName(chip_id);
+        }
+        Log.d(TAG, "Loading library: "+libraryToUse);
+        System.loadLibrary(libraryToUse);
     }
 
     public NativeNfcManager(Context context, DeviceHostListener listener) {
@@ -112,6 +130,59 @@ public class NativeNfcManager implements DeviceHost {
         mMposMgr = new NativeNfcMposManager();
         mT4tNfceeMgr = new NativeT4tNfceeManager();
         mExtFieldMgr = new NativeExtFieldDetectManager();
+    }
+
+    //Static function to getChip-ID
+    private static String getChipId() {
+        String chipIdValue = null;
+        boolean isHalServiceSupported = false;
+
+        try {
+            if(mNqHal == null) {
+                Log.d(TAG, "INqNfc 2.0 interface not initialized yet. Getting INqNfcV2_0 Service");
+                mNqHal = INqNfc.getService();
+            }
+            if(mNqHal != null) {
+                chipIdValue = mNqHal.getNfcChipId();
+                isHalServiceSupported = true;
+                Log.d(TAG, "Chip-ID received from HAL interface: "+chipIdValue);
+            }
+        }
+        catch(RemoteException | NoSuchElementException e) {
+            Log.e(TAG, "INqNfc 2.0 element not supported");
+        }
+
+        if(isHalServiceSupported == false) {
+            Log.d(TAG, "Reading system property for chip-id.");
+            chipIdValue = SystemProperties.get("vendor.qti.nfc.chipid", "0xc1");
+            Log.d(TAG, "Chip-ID received from system property: "+chipIdValue);
+        }
+
+        return chipIdValue;
+    }
+
+    private static String getLibraryName(String chip_id) {
+        String libraryName;
+
+        switch(chip_id) {
+            case "0xa3":
+            case "0xa4":
+            case "0xc1":
+                libraryName = "sn100nfc_nci_jni";
+                break;
+            case "0x51":
+                libraryName = "nqnfc_nci_jni";
+                break;
+            default:
+                /*
+                 * While doing code integration, please make sure the library name
+                 * matches with the LOCAL_MODULE name mentioned in the Makefile.
+                 * Makefile path: nci/jni/Android.mk
+                 */
+                libraryName = "sn100nfc_nci_jni";
+                break;
+        }
+        return libraryName;
     }
 
     public native boolean initializeNativeStructure();

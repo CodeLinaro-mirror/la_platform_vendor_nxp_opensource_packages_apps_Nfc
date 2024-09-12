@@ -1,5 +1,5 @@
 android_library {
-    name: "nfc-multidevice-utils",
+    name: "nqnfc-multidevice-utils",
     sdk_version: "test_current",
     srcs: [
         "src/com/android/nfc/utils/**/*.java",
@@ -18,7 +18,7 @@ android_library {
 }
 
 android_test {
-    name: "NfcEmulatorTestApp",
+    name: "NqNfcEmulatorTestApp",
     sdk_version: "test_current",
     srcs: [
         "src/com/android/nfc/emulator/**/*.java",
@@ -28,7 +28,7 @@ android_test {
     static_libs: [
         "framework-nfc.impl",
         "compatibility-device-util-axt",
-        "nfc-multidevice-utils",
+        "nqnfc-multidevice-utils",
         "androidx.test.runner",
 
     ],
@@ -36,7 +36,7 @@ android_test {
 }
 
 android_test {
-    name: "NfcReaderTestApp",
+    name: "NqNfcReaderTestApp",
     sdk_version: "test_current",
     srcs: [
         "src/com/android/nfc/reader/**/*.java",
@@ -45,13 +45,13 @@ android_test {
     static_libs: [
         "framework-nfc.impl",
         "compatibility-device-util-axt",
-        "nfc-multidevice-utils",
+        "nqnfc-multidevice-utils",
     ],
     min_sdk_version: "35",
 }
 
 python_library {
-    name: "pn532-python",
+    name: "Nqpn532-python",
     srcs: [
         "pn532/**/*.py",
         "pn532/nfcutils/**/*.py",

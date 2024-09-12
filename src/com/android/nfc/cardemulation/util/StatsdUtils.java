@@ -28,7 +28,7 @@ import android.sysprop.NfcProperties;
 import android.util.Log;
 
 import com.android.nfc.NfcStatsLog;
-import com.android.nfc.flags.Flags;
+import com.android.nfc.nqflags.Flags;
 
 import java.util.HashMap;
 import java.util.Objects;

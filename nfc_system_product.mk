@@ -10,6 +10,7 @@ NQ_SYSTEM_NFC += com.nxp.nfc.nq
 NQ_SYSTEM_NFC += com.nxp.nfc.nq.xml
 NQ_SYSTEM_NFC += Tag
 NQ_SYSTEM_NFC += com.android.nfc_extras
+NQ_SYSTEM_NFC += nqlibstatslog_nfc
 
 ifeq ($(strip $(TARGET_USES_QSSI_NQ_NFC)),true)
 PRODUCT_PACKAGES += $(NQ_SYSTEM_NFC)

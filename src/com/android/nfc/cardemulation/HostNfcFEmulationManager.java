@@ -57,7 +57,7 @@ import android.util.proto.ProtoOutputStream;
 import com.android.nfc.NfcService;
 import com.android.nfc.NfcStatsLog;
 import com.android.nfc.cardemulation.util.StatsdUtils;
-import com.android.nfc.flags.Flags;
+import com.android.nfc.nqflags.Flags;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;

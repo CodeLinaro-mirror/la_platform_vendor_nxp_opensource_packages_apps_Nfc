@@ -4,7 +4,7 @@ package {
 }
 
 java_library {
-    name: "nfc-event-log-proto",
+    name: "nqnfc-event-log-proto",
     proto: {
         type: "lite",
     },

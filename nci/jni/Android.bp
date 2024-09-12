@@ -4,7 +4,8 @@ package {
 }
 
 cc_library_shared {
-    name: "libnfc_nci_jni",
+    name: "libsn100nfc_nci_jni",
+    system_ext_specific: true,
     cflags:
      ["-DNXP_EXTNS=TRUE",
       "-DNXP_SRD=TRUE",]  + [
@@ -42,6 +43,7 @@ cc_library_shared {
         "libbinder_ndk",
         "libstatssocket",
         "libz",
+        "vendor.nxp.hardware.nfc@2.0",
         "vendor.nxp.nxpnfc@2.0",
         "vendor.nxp.nxpnfc_aidl-V1-ndk",
     ],
@@ -60,10 +62,10 @@ cc_library_shared {
         "android.hardware.nfc@1.2",
         // Add for AIDL
         "android.hardware.nfc-V1-ndk",
-        "libnfcutils",
-        "libnfc-nci",
-        "libnfc-nci_flags",
-        "libstatslog_nfc",
+        "libsn100nfcutils",
+        "libsn100nfc-nci",
+        "libnfc-nqnci_flags",
+        "nqlibstatslog_nfc",
         "android_nfc_flags_aconfig_c_lib",
         "server_configurable_flags",
         "libxml2",
@@ -96,9 +98,9 @@ cc_test {
     srcs: ["NfcTagTest.cpp"],
 
     shared_libs: [
-        "libnfc-nci",
-        "libnfc_nci_jni",
-        "libstatslog_nfc",
+        "libsn100nfc-nci",
+        "libsn100nfc_nci_jni",
+        "nqlibstatslog_nfc",
     ],
 
     static_libs: [

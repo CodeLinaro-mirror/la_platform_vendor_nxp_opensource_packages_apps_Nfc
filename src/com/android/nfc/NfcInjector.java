@@ -44,7 +44,7 @@ import android.util.Log;
 
 import com.android.nfc.cardemulation.util.StatsdUtils;
 import com.android.nfc.dhimpl.NativeNfcManager;
-import com.android.nfc.flags.FeatureFlags;
+import com.android.nfc.nqflags.FeatureFlags;
 import com.android.nfc.handover.HandoverDataParser;
 import com.android.nfc.proto.NfcEventProto;
 
@@ -98,7 +98,7 @@ public class NfcInjector {
         mNfcDispatcher = new NfcDispatcher(mContext, mHandoverDataParser, isInProvisionMode());
         mVibrationEffect = VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE);
         mBackupManager = new BackupManager(mContext);
-        mFeatureFlags = new com.android.nfc.flags.FeatureFlagsImpl();
+        mFeatureFlags = new com.android.nfc.nqflags.FeatureFlagsImpl();
         mStatsdUtils = mFeatureFlags.statsdCeEventsFlag() ? new StatsdUtils() : null;
         mForegroundUtils =
                 ForegroundUtils.getInstance(mContext.getSystemService(ActivityManager.class));

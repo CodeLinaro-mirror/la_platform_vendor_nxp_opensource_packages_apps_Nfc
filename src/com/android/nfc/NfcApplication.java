@@ -24,9 +24,11 @@ import android.nfc.Constants;
 import android.os.Looper;
 import android.os.Process;
 import android.os.UserHandle;
+import android.view.ThreadedRenderer;
 
 import java.util.Iterator;
 import java.util.List;
+import java.io.File;
 
 public class NfcApplication extends Application {
 
@@ -67,7 +69,7 @@ public class NfcApplication extends Application {
         File file = new File("/dev/nq-nci");
         if (file.exists()) {
             if (UserHandle.myUserId() == 0 && isMainProcess) {
-                mNfcService = new NfcService(this);
+                mNfcService = new NfcService(this,  new NfcInjector(this, Looper.myLooper()));
                 ThreadedRenderer.enableForegroundTrimming();
            }
         }

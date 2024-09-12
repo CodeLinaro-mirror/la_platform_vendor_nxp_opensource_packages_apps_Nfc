@@ -19,7 +19,7 @@
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <log/log.h>
-#include <statslog_nfc.h>
+#include <nqstatslog_nfc.h>
 
 #include "nfc_api.h"
 

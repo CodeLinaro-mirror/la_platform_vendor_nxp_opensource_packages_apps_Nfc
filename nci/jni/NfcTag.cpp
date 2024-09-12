@@ -43,7 +43,7 @@
 #include <log/log.h>
 #include <nativehelper/ScopedLocalRef.h>
 #include <nativehelper/ScopedPrimitiveArray.h>
-#include <statslog_nfc.h>
+#include <nqstatslog_nfc.h>
 
 #include "JavaClassConstants.h"
 #include "nfc_brcm_defs.h"

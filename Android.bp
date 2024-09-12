@@ -29,7 +29,7 @@ java_library {
 }
 
 java_defaults {
-    name: "NfcNciDefaults",
+    name: "NqNfcNciDefaults",
     static_libs: [
         "android.se.omapi-V1-java",
         "androidx.annotation_annotation",
@@ -38,8 +38,9 @@ java_defaults {
         "com.google.android.material_material",
         "modules-utils-fastxmlserializer",
         "modules-utils-shell-command-handler",
+        "vendor.nxp.hardware.nfc-V2.0-java",
         "PlatformProperties",
-        "nfc-event-log-proto",
+        "nqnfc-event-log-proto",
         "nqnfc_flags_lib",
     ],
     privileged: true,
@@ -53,17 +54,18 @@ java_defaults {
 // NCI Configuration used without NFC apex
 // This version compiles against platform.
 android_app {
-    name: "NfcNci",
-    defaults: ["NfcNciDefaults"],
+    name: "NQNfcNci",
+    system_ext_specific: true,
+    defaults: ["NqNfcNciDefaults"],
     certificate: "platform",
     sdk_version: "core_platform",
     srcs: [
-        ":nfc-sources",
+        ":nqnfc-sources",
         "shim_src/non_apex/**/*.java",
     ],
-    uses_libs: ["com.nxp.nfc"],
+    uses_libs: ["com.nxp.nfc.nq"],
     libs: [
-        "com.nxp.nfc",
+        "com.nxp.nfc.nq",
         // order matters: classes in framework-nfc are resolved before framework, meaning
         // @hide APIs in framework-nfc are resolved before @SystemApi stubs in framework
         "framework-nfc.impl",
@@ -90,12 +92,12 @@ android_app {
 // // This version compiles against SDK API's.
 // android_app {
 //     name: "NfcNciApex",
-//     defaults: ["NfcNciDefaults"],
+//     defaults: ["NqNfcNciDefaults"],
 //     min_sdk_version: "current",
 //     sdk_version: "module_current",
 //     certificate: "nfc",
 //     srcs: [
-//         ":nfc-sources",
+//         ":nqnfc-sources",
 //         "shim_src/apex/**/*.java",
 //     ],
 //     uses_libs: ["com.nxp.nfc"],
