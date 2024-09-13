@@ -2072,11 +2072,17 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         return mIsSecureNfcEnabled;
     }
 
+
     /** Helper method to check if the entity initiating the binder call is a DO/PO app. */
     private boolean isDeviceOrProfileOwner(int uid, String packageName) {
         return mNfcPermissions.isDeviceOwner(uid, packageName)
                 || mNfcPermissions.isProfileOwner(uid, packageName);
     }
+
+      @Override
+      public List<String> fetchActiveNfceeList() throws RemoteException {
+            return new ArrayList<String>();
+        }
 
     final class NfcAdapterService extends INfcAdapter.Stub {
         private boolean isPrivileged(int callingUid) {
@@ -2960,7 +2966,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public boolean enableReaderOption(boolean enable) {
+        public boolean enableReaderOption(boolean enable, String pkg) {
             Log.d(TAG, "enableReaderOption enabled=" + enable);
             if (!mReaderOptionCapable) return false;
             NfcPermissions.enforceAdminPermissions(mContext);
