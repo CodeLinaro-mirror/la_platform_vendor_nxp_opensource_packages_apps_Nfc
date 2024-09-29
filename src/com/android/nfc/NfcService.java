@@ -1721,11 +1721,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
     }
 
-      @Override
-      public List<String> fetchActiveNfceeList() throws RemoteException {
-            return new ArrayList<String>();
-        }
-
     final class NfcAdapterService extends INfcAdapter.Stub {
         @Override
         public boolean isObserveModeEnabled() {
@@ -1761,6 +1756,11 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
+        public List<String> fetchActiveNfceeList() throws RemoteException {
+            return new ArrayList<String>();
+        }
+
+	@Override
         public void unregisterOemExtensionCallback(INfcOemExtensionCallback callbacks)
                 throws RemoteException {
             if (DBG) Log.i(TAG, "Unregister the oem extension callback");
