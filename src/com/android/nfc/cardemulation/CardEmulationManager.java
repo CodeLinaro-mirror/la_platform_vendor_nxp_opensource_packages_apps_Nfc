@@ -780,12 +780,19 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
     //}
 
     @Override
-        public boolean overrideRoutingTable(int userHandle, String protocol, String technology) {
+        public void overrideRoutingTable(int userHandle, String protocol, String technology, String pkg) {
 
             int callingUid = Binder.getCallingUid();
             if (!mForegroundUtils.registerUidToBackgroundCallback(mForegroundCallback, callingUid)) {
                 Log.e(TAG, "overrideRoutingTable: Caller is not in foreground.");
-                return false;
+                return;
+            }
+            if (android.nfc.Flags.nfcOverrideRecoverRoutingTable()) {
+                if (!isPreferredServicePackageNameForUser(pkg,
+                        UserHandle.getUserHandleForUid(callingUid).getIdentifier())) {
+                    Log.e(TAG, "overrideRoutingTable: Caller not preferred NFC service.");
+                    throw new SecurityException("Caller not preferred NFC service");
+                }
             }
             mForegroundUid = callingUid;
 
@@ -799,16 +806,16 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
             mAidCache.onRoutingOverridedOrRecovered();
 //            NfcService.getInstance().commitRouting();
 
-            return true;
+            return;
         }
 
         @Override
-        public boolean recoverRoutingTable(int userHandle) {
+        public void recoverRoutingTable(int userHandle) {
             Log.d(TAG, "recoverRoutingTable. userHandle " + userHandle);
 
             if (!mForegroundUtils.isInForeground(Binder.getCallingUid())) {
                 if (DBG) Log.d(TAG, "recoverRoutingTable : not in foreground.");
-                return false;
+                throw new IllegalArgumentException("Caller is not in foreground.");
             }
             mForegroundUid = Process.INVALID_UID;
 
@@ -816,7 +823,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
             mAidCache.onRoutingOverridedOrRecovered();
 //            NfcService.getInstance().commitRouting();
 
-            return true;
+            return;
         }
     }
 
@@ -1026,5 +1033,9 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
 
     public boolean isRequiresScreenOnServiceExist() {
         return mAidCache.isRequiresScreenOnServiceExist();
+    }
+
+    public boolean isPreferredServicePackageNameForUser(String packageName, int userId) {
+        return mAidCache.isPreferredServicePackageNameForUser(packageName, userId);
     }
 }

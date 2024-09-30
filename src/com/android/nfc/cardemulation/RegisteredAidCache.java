@@ -1087,6 +1087,11 @@ public class RegisteredAidCache {
         }
     }
 
+    public boolean isPreferredServicePackageNameForUser(String packageName, int userId) {
+        // TODO: Implement me
+        return true;
+    }
+
     public void onNfcDisabled() {
         synchronized (mLock) {
             mNfcEnabled = false;
