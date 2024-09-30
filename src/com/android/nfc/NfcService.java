@@ -2093,7 +2093,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public void updateDiscoveryTechnology(IBinder binder, int pollTech, int listenTech)
+        public void updateDiscoveryTechnology(IBinder binder, int pollTech, int listenTech, String packageName)
                 throws RemoteException {
             NfcPermissions.enforceUserPermissions(mContext);
             synchronized (NfcService.this) {
@@ -2128,13 +2128,12 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public void setReaderMode(IBinder binder, IAppCallback callback, int flags, Bundle extras)
+        public void setReaderMode(IBinder binder, IAppCallback callback, int flags, Bundle extras, String packageName)
                 throws RemoteException {
             boolean privilegedCaller = false;
             int callingUid = Binder.getCallingUid();
             int callingPid = Binder.getCallingPid();
             // Allow non-foreground callers with system uid or systemui
-            String packageName = getPackageNameFromUid(callingUid);
             if (packageName != null) {
                 privilegedCaller = (callingUid == Process.SYSTEM_UID
                        || packageName.equals(SYSTEM_UI));
