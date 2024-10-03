@@ -911,6 +911,17 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateTechnologyABRoute(int route) {
   nfaStat = NFA_EeClearDefaultTechRouting(
       handleDefaultOffHostRoute,
       NFA_TECHNOLOGY_MASK_A | NFA_TECHNOLOGY_MASK_B | NFA_TECHNOLOGY_MASK_F);
+  int handleDefaultFelicaRoute =
+      SecureElement::getInstance().getEseHandleFromGenericId(
+          mDefaultFelicaRoute);
+  nfaStat = NFA_EeClearDefaultTechRouting(handleDefaultFelicaRoute,
+                                          NFA_TECHNOLOGY_MASK_F);
+  unsigned long num = 0;
+  num = NfcConfig::getUnsigned(NAME_DEFAULT_MIFARE_CLT_ROUTE, 0x00);
+  int handleDefaultMifareRoute =
+      SecureElement::getInstance().getEseHandleFromGenericId(num);
+  nfaStat = NFA_EeClearDefaultTechRouting(
+      handleDefaultMifareRoute, NFA_TECHNOLOGY_MASK_A | NFA_TECHNOLOGY_MASK_B);
 #else
   nfaStat = NFA_EeClearDefaultTechRouting(
       mDefaultOffHostRoute,
@@ -929,13 +940,13 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
   static const char fn[] = "RoutingManager::updateEeTechRouteSetting";
   tNFA_TECHNOLOGY_MASK allSeTechMask = 0x00;
 
-#if(NXP_EXTNS == TRUE)
   int handleDefaultOffHost = SecureElement::getInstance().getEseHandleFromGenericId(mDefaultOffHostRoute);
   int handleDefaultFelicaRoute = SecureElement::getInstance().getEseHandleFromGenericId(mDefaultFelicaRoute);
-#endif
 
+#if(NXP_EXTNS != TRUE)
   if (mDefaultOffHostRoute == 0 && mDefaultFelicaRoute == 0)
     return allSeTechMask;
+#endif
 
   LOG(DEBUG) << fn << ": Number of EE is " << (int)mEeInfo.num_ee;
 
@@ -962,16 +973,17 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
         seTechMask |= NFA_TECHNOLOGY_MASK_A;
       if (mEeInfo.ee_disc_info[i].lb_protocol != 0)
         seTechMask |= NFA_TECHNOLOGY_MASK_B;
-    }
-    if ((mDefaultFelicaRoute != 0) &&
-#if(NXP_EXTNS != TRUE)
-        (eeHandle == (mDefaultFelicaRoute | NFA_HANDLE_GROUP_EE))) {
-#else
-        (eeHandle == handleDefaultFelicaRoute)) {
-#endif
       if (mEeInfo.ee_disc_info[i].lf_protocol != 0)
         seTechMask |= NFA_TECHNOLOGY_MASK_F;
     }
+
+#if(NXP_EXTNS != TRUE)
+    if ((mDefaultFelicaRoute != 0) &&
+        (eeHandle == (mDefaultFelicaRoute | NFA_HANDLE_GROUP_EE))) {
+      if (mEeInfo.ee_disc_info[i].lf_protocol != 0)
+        seTechMask |= NFA_TECHNOLOGY_MASK_F;
+    }
+#endif
 
     // If OFFHOST_LISTEN_TECH_MASK exists,
     // filter out the unspecified technologies
@@ -988,7 +1000,13 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
         LOG(ERROR) << fn << "Failed to configure UICC listen technologies.";
 
       // clear previous before setting new power state
+#if (NXP_EXTNS != TRUE)
       nfaStat = NFA_EeClearDefaultTechRouting(eeHandle, seTechMask);
+#else
+      nfaStat = NFA_EeClearDefaultTechRouting(
+          eeHandle, NFA_TECHNOLOGY_MASK_A | NFA_TECHNOLOGY_MASK_B |
+                        NFA_TECHNOLOGY_MASK_F);
+#endif
       if (nfaStat != NFA_STATUS_OK)
         LOG(ERROR) << fn << "Failed to clear EE technology routing.";
 
@@ -1002,6 +1020,28 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
 
       allSeTechMask |= seTechMask;
     }
+  }
+
+  if (mDefaultOffHostRoute == NFC_DH_ID) {
+    tNFA_TECHNOLOGY_MASK hostTechMask = 0;
+    LOG(DEBUG) << StringPrintf(
+        "%s: Setting technology route to host with A,B and F type", fn);
+    hostTechMask |= NFA_TECHNOLOGY_MASK_A;
+    hostTechMask |= NFA_TECHNOLOGY_MASK_B;
+    hostTechMask |= NFA_TECHNOLOGY_MASK_F;
+    hostTechMask &= mHostListenTechMask;
+
+    nfaStat = NFA_EeSetDefaultTechRouting(NFC_DH_ID, hostTechMask, 0, 0,
+                                          mSecureNfcEnabled ? 0 : hostTechMask,
+                                          mSecureNfcEnabled ? 0 : hostTechMask,
+                                          mSecureNfcEnabled ? 0 : hostTechMask);
+    if (nfaStat != NFA_STATUS_OK)
+      LOG(ERROR) << fn << "Failed to configure DH technology routing.";
+
+    nfaStat = NFA_CeConfigureUiccListenTech(NFC_DH_ID, hostTechMask);
+      if (nfaStat != NFA_STATUS_OK)
+        LOG(ERROR) << fn << "Failed to configure DH UICC listen technologies.";
+    return hostTechMask;
   }
 
   // Clear DH technology route on NFC-A
@@ -1085,18 +1125,24 @@ void RoutingManager::nfaEeCallback(tNFA_EE_EVT event,
       se.notifyModeSet(eventData->mode_set.ee_handle, !(eventData->mode_set.status),eventData->mode_set.ee_status );
 #endif
     } break;
-#if (NXP_EXTNS == TRUE)
+
     case NFA_EE_PWR_AND_LINK_CTRL_EVT:
     {
+#if (NXP_EXTNS == TRUE)
       LOG(DEBUG) << StringPrintf(
           "%s: NFA_EE_PWR_AND_LINK_CTRL_EVT; status: 0x%04X ", fn,
           eventData->status);
       se.mPwrCmdstatus = eventData->status;
       SyncEventGuard guard (se.mPwrLinkCtrlEvent);
       se.mPwrLinkCtrlEvent.notifyOne();
+#else
+      LOG(DEBUG) << StringPrintf("%s: NFA_EE_PWR_AND_LINK_CTRL_EVT", fn);
+      SyncEventGuard guard(routingManager.mEePwrAndLinkCtrlEvent);
+      routingManager.mEePwrAndLinkCtrlEvent.notifyOne();
+#endif
     }
     break;
-#endif
+
     case NFA_EE_SET_TECH_CFG_EVT: {
       LOG(DEBUG) << StringPrintf("%s: NFA_EE_SET_TECH_CFG_EVT; status=0x%X", fn,
                                  eventData->status);
@@ -1431,6 +1477,61 @@ void RoutingManager::clearRoutingEntry(int clearFlags) {
   }
 }
 
+/*******************************************************************************
+**
+** Function:        eeSetPwrAndLinkCtrl
+**
+** Description:     Programs the NCI command NFCEE_POWER_AND_LINK_CTRL_CMD
+**
+** Returns:         None
+**
+*******************************************************************************/
+void RoutingManager::eeSetPwrAndLinkCtrl(uint8_t config) {
+  static const char fn[] = "RoutingManager::eeSetPwrAndLinkCtrl";
+  tNFA_STATUS status = NFA_STATUS_OK;
+
+  if (mOffHostRouteEse.size() > 0) {
+    LOG(DEBUG) << StringPrintf("%s - nfceeId: 0x%02X, config: 0x%02X", fn,
+                               mOffHostRouteEse[0], config);
+
+    SyncEventGuard guard(mEePwrAndLinkCtrlEvent);
+    status =
+        NFA_EePowerAndLinkCtrl(
+            ((uint8_t)mOffHostRouteEse[0] | NFA_HANDLE_GROUP_EE), config);
+    if (status != NFA_STATUS_OK) {
+      LOG(ERROR) << StringPrintf("%s: fail NFA_EePowerAndLinkCtrl; error=0x%X",
+                                 __FUNCTION__, status);
+      return;
+    } else {
+      mEePwrAndLinkCtrlEvent.wait();
+    }
+  } else {
+    LOG(ERROR) << StringPrintf("%s: No ESE specified", __FUNCTION__);
+  }
+}
+
+/*******************************************************************************
+**
+** Function:        setEeTechRouteUpdateRequired
+**
+** Description:     Set flag EeInfoChanged so that tech route will be updated
+**                  when applying route table.
+**
+** Returns:         None
+**
+*******************************************************************************/
+void RoutingManager::setEeTechRouteUpdateRequired() {
+  static const char fn[] = "RoutingManager::setEeTechRouteUpdateRequired";
+
+  LOG(DEBUG) << StringPrintf("%s", fn);
+
+#if(NXP_EXTNS != TRUE)
+  // Setting flag for Ee info changed so that
+  // routing table can be updated
+  mEeInfoChanged = true;
+#endif
+}
+
 void RoutingManager::deinitialize() {
   onNfccShutdown();
   NFA_EeDeregister(nfaEeCallback);
@@ -1583,7 +1684,7 @@ void RoutingManager::configureOffHostNfceeTechMask(void)
     uint8_t           count           = 0x00;
     tNFA_HANDLE       preferredHandle = SecureElement::getInstance().EE_HANDLE_0xF4;
     tNFA_HANDLE       defaultHandle   = NFA_HANDLE_INVALID;
-    tNFA_HANDLE       ee_handleList[nfcFL.nfccFL._NFA_EE_MAX_EE_SUPPORTED];
+    tNFA_HANDLE       ee_handleList[NFA_EE_MAX_EE_SUPPORTED];
 
     //ALOGV("%s: enter", fn);
 
@@ -1687,8 +1788,10 @@ bool RoutingManager::setRoutingEntry(int type, int value, int route, int power)
             "%s: enter >>>> max_tech_mask :%lx value :0x%x", fn, max_tech_mask,
             value);
         switch_on_mask = (power & 0x01) ? value : 0;
-        switch_off_mask = (power & 0x02) ? value : 0;
-        battery_off_mask = (power & 0x04) ? value : 0;
+        if (ee_handle != SecureElement::EE_HANDLE_0xF0) {
+          switch_off_mask = (power & 0x02) ? value : 0;
+          battery_off_mask = (power & 0x04) ? value : 0;
+        }
         screen_off_mask = (power & 0x08) ? value : 0;
         screen_lock_mask = (power & 0x10) ? value : 0;
         screen_off_lock_mask = (power & 0x20) ? value : 0;

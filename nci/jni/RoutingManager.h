@@ -124,9 +124,11 @@ class RoutingManager {
   int registerJniFunctions(JNIEnv* e);
   bool setNfcSecure(bool enable);
   void updateRoutingTable();
+  void eeSetPwrAndLinkCtrl(uint8_t config);
   void updateIsoDepProtocolRoute(int route);
   tNFA_TECHNOLOGY_MASK updateTechnologyABRoute(int route);
   void clearRoutingEntry(int clearFlags);
+  void setEeTechRouteUpdateRequired();
 
   static const int CLEAR_AID_ENTRIES = 0x01;
   static const int CLEAR_PROTOCOL_ENTRIES = 0x02;
@@ -243,6 +245,7 @@ class RoutingManager {
   SyncEvent mEeUpdateEvent;
   SyncEvent mEeInfoEvent;
   SyncEvent mEeSetModeEvent;
+  SyncEvent mEePwrAndLinkCtrlEvent;
   SyncEvent mAidAddRemoveEvent;
 #if(NXP_EXTNS == TRUE)
     //Currently 4 protocols supported namely T3T, ISO-DEP, ISO-7816, NFC-DEP(taken care internally by the libnfc stack)

@@ -29,17 +29,19 @@
 *  See the License for the specific language governing permissions and
 *  limitations under the License.
 *
-*  Copyright 2018-2023 NXP
+*  Copyright 2018-2024 NXP
 *
 ******************************************************************************/
 package com.android.nfc;
 
 import android.annotation.Nullable;
 import android.nfc.NdefMessage;
+import android.nfc.cardemulation.PollingFrame;
 import android.os.Bundle;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.util.List;
 
 public interface DeviceHost {
     public interface DeviceHostListener {
@@ -75,8 +77,10 @@ public interface DeviceHost {
 
         public void onHwErrorReported();
 
-	public void onPollingLoopDetected(Bundle pollingFrame);
-	/**
+        public void onPollingLoopDetected(List<PollingFrame> pollingFrames);
+
+        public void onVendorSpecificEvent(int gid, int oid, byte[] payload);
+        /**
          * Notifies SWP Reader Events.
          */
         public void onScrNotifyEvents(int event);
@@ -106,6 +110,8 @@ public interface DeviceHost {
         void startPresenceChecking(int presenceCheckDelay,
                                    @Nullable TagDisconnectedCallback callback);
         void stopPresenceChecking();
+        boolean isPresenceCheckStopped();
+        void prepareForRemovalDetectionMode();
 
         int[] getTechList();
         void removeTechnology(int tech); // TODO remove this one
@@ -136,7 +142,7 @@ public interface DeviceHost {
     }
 
     public interface TagDisconnectedCallback {
-        void onTagDisconnected(long handle);
+        void onTagDisconnected();
     }
 
     public interface NfceeEndpoint {
@@ -144,15 +150,6 @@ public interface DeviceHost {
     }
 
     public interface NfcDepEndpoint {
-
-        /**
-         * Peer-to-Peer Target
-         */
-        public static final short MODE_P2P_TARGET = 0x00;
-        /**
-         * Peer-to-Peer Initiator
-         */
-        public static final short MODE_P2P_INITIATOR = 0x01;
         /**
          * Invalid target mode
          */
@@ -249,17 +246,9 @@ public interface DeviceHost {
 
     public int getAidTableSize();
 
-    void setP2pInitiatorModes(int modes);
-
-    void setP2pTargetModes(int modes);
-
     boolean getExtendedLengthApdusSupported();
 
     void dump(FileDescriptor fd);
-
-    boolean enableScreenOffSuspend();
-
-    boolean disableScreenOffSuspend();
 
     public void doSetScreenState(int screen_state_mask);
 
@@ -285,13 +274,18 @@ public interface DeviceHost {
 
     public void shutdown();
 
-    public boolean setNfcSecure(boolean enable);
+    /**
+    * Set NFCC power state by sending NFCEE_POWER_AND_LINK_CNTRL_CMD
+    */
+    void setNfceePowerAndLinkCtrl(boolean enable);
 
-    public String getNfaStorageDir();
+    public boolean setNfcSecure(boolean enable);
 
     public boolean isObserveModeSupported();
 
     public boolean setObserveMode(boolean enable);
+
+    public boolean isObserveModeEnabled();
 
     /**
     * Get the committed listen mode routing configuration
@@ -317,6 +311,12 @@ public interface DeviceHost {
     */
     void setDiscoveryTech(int pollTech, int listenTech);
     void resetDiscoveryTech();
+    /**
+    * Sends Vendor NCI command
+    */
+    NfcVendorNciResponse sendRawVendorCmd(int mt, int gid, int oid, byte[] payload);
+
+    void enableVendorNciNotifications(boolean enabled);
 
     /* NXP extension are here */
     public boolean accessControlForCOSU (int mode);
@@ -346,13 +346,12 @@ public interface DeviceHost {
      * Restarts RF Discovery
      */
     void restartRFDiscovery();
-    /**
-     * Enable or Disable the ULPDet Mode based on flag
-     */
-    boolean setULPDetMode(boolean flag);
 
     /**
      * Enable or Disable the Power Saving Mode based on flag
      */
     boolean setPowerSavingMode(boolean flag);
+
+    public boolean isRemovalDetectionInPollModeSupported();
+    public void startRemovalDetectionProcedure(int waitTimeout);
 }

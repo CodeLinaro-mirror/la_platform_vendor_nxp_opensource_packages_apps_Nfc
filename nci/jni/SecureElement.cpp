@@ -133,7 +133,7 @@ bool SecureElement::initialize(nfc_jni_native_data* native) {
 
     mNativeData     = native;
     mthreadnative    = native;
-    mActualNumEe    = nfcFL.nfccFL._NFA_EE_MAX_EE_SUPPORTED;
+    mActualNumEe    = NFA_EE_MAX_EE_SUPPORTED;
     mbNewEE         = true;
     mNewPipeId      = 0;
     mIsSeIntfActivated = false;
@@ -1078,36 +1078,34 @@ tNFA_STATUS SecureElement::SecElem_EeModeSet(uint16_t handle, uint8_t mode)
 ** Returns:         Information about an execution environment.
 **
 *******************************************************************************/
-jint SecureElement::getSETechnology(tNFA_HANDLE eeHandle)
-{
-    int tech_mask = 0x00;
-    //static const char fn [] = "SecureElement::getSETechnology";
-    // Get Fresh EE info.
-    if (! getEeInfo())
-    {
-        //ALOGE("%s: No updated eeInfo available", fn);
-    }
-
+jint SecureElement::getSETechnology(tNFA_HANDLE eeHandle) {
+  int tech_mask = 0x00;
+  // static const char fn [] = "SecureElement::getSETechnology";
+  // Get Fresh EE info.
+  if (!getEeInfo()) {
+    // ALOGE("%s: No updated eeInfo available", fn);
+  }
+  if (eeHandle == EE_HANDLE_DH) {
+    tech_mask = NfcConfig::getUnsigned(NAME_HOST_LISTEN_TECH_MASK, 0x07);
+  } else {
     tNFA_EE_INFO* eeinfo = findEeByHandle(eeHandle);
 
-    if(eeinfo!=NULL){
-        if(eeinfo->la_protocol != 0x00)
-        {
-            tech_mask |= 0x01;
-        }
+    if (eeinfo != NULL) {
+      if (eeinfo->la_protocol != 0x00) {
+        tech_mask |= 0x01;
+      }
 
-        if(eeinfo->lb_protocol != 0x00)
-        {
-            tech_mask |= 0x02;
-        }
+      if (eeinfo->lb_protocol != 0x00) {
+        tech_mask |= 0x02;
+      }
 
-        if(eeinfo->lf_protocol != 0x00)
-        {
-            tech_mask |= 0x04;
-        }
+      if (eeinfo->lf_protocol != 0x00) {
+        tech_mask |= 0x04;
+      }
     }
+  }
 
-    return tech_mask;
+  return tech_mask;
 }
 /*******************************************************************************
  **
@@ -1372,7 +1370,7 @@ bool SecureElement::getEeInfo()
 
         memset (&mNfceeData_t, 0, sizeof (mNfceeData_t));
 
-        mActualNumEe = nfcFL.nfccFL._NFA_EE_MAX_EE_SUPPORTED;
+        mActualNumEe = NFA_EE_MAX_EE_SUPPORTED;
         if ((nfaStat = NFA_EeGetInfo(&mActualNumEe, mEeInfo)) != NFA_STATUS_OK)
         {
             LOG(ERROR) << StringPrintf("%s: fail get info; error=0x%X", fn, nfaStat);

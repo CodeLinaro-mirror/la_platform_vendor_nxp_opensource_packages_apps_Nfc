@@ -206,18 +206,18 @@ class NfcTag {
    ** Returns:         None
    **
    *******************************************************************************/
-  static void notifyNfcAbortTagops(union sigval);
+  static void notifyNfcAbortTagops(tNFC_DEACT_REASON reason);
 
-/*******************************************************************************
-**
-** Function         clearNonStdMfcState
-**
-** Description      Clear Non standard MFC states
-**
-** Returns          None
-**
-*******************************************************************************/
-void clearNonStdMfcState();
+  /*******************************************************************************
+  **
+  ** Function         clearNonStdMfcState
+  **
+  ** Description      Clear Non standard MFC states
+  **
+  ** Returns          None
+  **
+  *******************************************************************************/
+  void clearNonStdMfcState();
 
 #endif
   /*******************************************************************************
@@ -230,28 +230,6 @@ void clearNonStdMfcState();
   **
   *******************************************************************************/
   tNFC_PROTOCOL getProtocol();
-
-  /*******************************************************************************
-  **
-  ** Function:        isP2pDiscovered
-  **
-  ** Description:     Does the peer support P2P?
-  **
-  ** Returns:         True if the peer supports P2P.
-  **
-  *******************************************************************************/
-  bool isP2pDiscovered();
-
-  /*******************************************************************************
-  **
-  ** Function:        selectP2p
-  **
-  ** Description:     Select the preferred P2P technology if there is a choice.
-  **
-  ** Returns:         None
-  **
-  *******************************************************************************/
-  void selectP2p();
 
   /*******************************************************************************
   **
@@ -311,6 +289,18 @@ void clearNonStdMfcState();
   **
   *******************************************************************************/
   int getT1tMaxMessageSize();
+
+/*******************************************************************************
+**
+** Function:        isNfcForumT2T
+**
+** Description:     Whether tag is Nfc-Forum based and uses read command for
+**                  presence check.
+**
+** Returns:         True if tag is isNfcForumT2T.
+**
+*******************************************************************************/
+bool isNfcForumT2T();
 
   /*******************************************************************************
   **

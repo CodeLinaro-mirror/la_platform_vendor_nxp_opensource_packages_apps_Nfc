@@ -39,6 +39,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.nfc.cardemulation.CardEmulation;
 import android.nfc.cardemulation.HostNfcFService;
 import android.nfc.cardemulation.NfcFServiceInfo;
 import android.nfc.cardemulation.Utils;
@@ -55,13 +56,16 @@ import android.util.proto.ProtoOutputStream;
 
 import com.android.nfc.NfcService;
 import com.android.nfc.NfcStatsLog;
+import com.android.nfc.cardemulation.util.StatsdUtils;
+import com.android.nfc.nqflags.Flags;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import androidx.annotation.VisibleForTesting;
 
 public class HostNfcFEmulationManager {
     static final String TAG = "HostNfcFEmulationManager";
-    static final boolean DBG = NfcProperties.debug_enabled().orElse(false);
+    static final boolean DBG = NfcProperties.debug_enabled().orElse(true);
 
     static final int STATE_IDLE = 0;
     static final int STATE_W4_SERVICE = 1;
@@ -77,6 +81,8 @@ public class HostNfcFEmulationManager {
     final RegisteredT3tIdentifiersCache mT3tIdentifiersCache;
     final Messenger mMessenger = new Messenger (new MessageHandler());
     final Object mLock;
+
+    private final StatsdUtils mStatsdUtils;
 
     // All variables below protected by mLock
     ComponentName mEnabledFgServiceName;
@@ -104,6 +110,8 @@ public class HostNfcFEmulationManager {
         mEnabledFgServiceName = null;
         mT3tIdentifiersCache = t3tIdentifiersCache;
         mState = STATE_IDLE;
+        mStatsdUtils =
+                Flags.statsdCeEventsFlag() ? new StatsdUtils(StatsdUtils.SE_NAME_HCEF) : null;
     }
 
     /**
@@ -145,6 +153,9 @@ public class HostNfcFEmulationManager {
             // Check if resolvedService is actually currently enabled
             if (mEnabledFgServiceName == null ||
                     !mEnabledFgServiceName.equals(resolvedServiceName)) {
+                if (mStatsdUtils != null) {
+                    mStatsdUtils.logCardEmulationWrongSettingEvent();
+                }
                 return;
             }
             if (DBG) Log.d(TAG, "resolvedServiceName: " + resolvedServiceName.toString() +
@@ -152,10 +163,11 @@ public class HostNfcFEmulationManager {
             switch (mState) {
                 case STATE_IDLE:
                     int userId;
+                    int uid = resolvedService != null ? resolvedService.getUid() : -1;
                     if (resolvedService == null) {
                         userId = mEnabledFgServiceUserId;
                     } else {
-                        userId = UserHandle.getUserHandleForUid(resolvedService.getUid())
+                        userId = UserHandle.getUserHandleForUid(uid)
                                 .getIdentifier();
                     }
                     Messenger existingService =
@@ -172,14 +184,15 @@ public class HostNfcFEmulationManager {
                         mState = STATE_W4_SERVICE;
                     }
 
-                    int uid = -1;
-                    if(resolvedService != null) {
-                        uid = resolvedService.getUid();
+                    if (mStatsdUtils != null) {
+                        mStatsdUtils.setCardEmulationEventUid(uid);
+                        mStatsdUtils.notifyCardEmulationEventWaitingForResponse();
+                    } else {
+                        NfcStatsLog.write(NfcStatsLog.NFC_CARDEMULATION_OCCURRED,
+                                NfcStatsLog.NFC_CARDEMULATION_OCCURRED__CATEGORY__HCE_PAYMENT,
+                                "HCEF",
+                                uid);
                     }
-                    NfcStatsLog.write(NfcStatsLog.NFC_CARDEMULATION_OCCURRED,
-                            NfcStatsLog.NFC_CARDEMULATION_OCCURRED__CATEGORY__HCE_PAYMENT,
-                            "HCEF",
-                            uid);
                     break;
                 case STATE_W4_SERVICE:
                     Log.d(TAG, "Unexpected packet in STATE_W4_SERVICE");
@@ -200,6 +213,9 @@ public class HostNfcFEmulationManager {
             mActiveServiceName = null;
             unbindServiceIfNeededLocked();
             mState = STATE_IDLE;
+            if (mStatsdUtils != null) {
+                mStatsdUtils.logCardEmulationDeactivatedEvent();
+            }
         }
     }
 
@@ -274,6 +290,9 @@ public class HostNfcFEmulationManager {
             return mService;
         } else {
             Log.d(TAG, "Binding to service " + service);
+            if (mStatsdUtils != null) {
+                mStatsdUtils.notifyCardEmulationEventWaitingForService();
+            }
             unbindServiceIfNeededLocked();
             Intent bindIntent = new Intent(HostNfcFService.SERVICE_INTERFACE);
             bindIntent.setComponent(service);
@@ -325,6 +344,9 @@ public class HostNfcFEmulationManager {
                 mState = STATE_XFER;
                 // Send pending packet
                 if (mPendingPacket != null) {
+                    if (mStatsdUtils != null) {
+                        mStatsdUtils.notifyCardEmulationEventServiceBound();
+                    }
                     sendDataToServiceLocked(mService, mPendingPacket);
                     mPendingPacket = null;
                 }
@@ -376,6 +398,9 @@ public class HostNfcFEmulationManager {
                     Log.d(TAG, "Sending data");
                     if (DBG) Log.d(TAG, "data:" + getByteDump(data));
                     NfcService.getInstance().sendData(data);
+                    if (mStatsdUtils != null) {
+                        mStatsdUtils.notifyCardEmulationEventResponseReceived();
+                    }
                 } else {
                     Log.d(TAG, "Dropping data, wrong state " + Integer.toString(state));
                 }
@@ -437,4 +462,34 @@ public class HostNfcFEmulationManager {
                     mServiceName, proto, HostNfcFEmulationManagerProto.SERVICE_NAME);
         }
     }
+    @VisibleForTesting
+    public String getEnabledFgServiceName() {
+        if (mEnabledFgServiceName != null) {
+            return mEnabledFgServiceName.getPackageName();
+        }
+        return null;
+    }
+
+    @VisibleForTesting
+    public boolean isUserSwitched() {
+        if (mEnabledFgServiceName == null && mActiveService == null && mState == STATE_IDLE)
+            return true;
+        return false;
+    }
+
+    @VisibleForTesting
+    public int getServiceUserId() {
+        return mServiceUserId;
+    }
+
+    @VisibleForTesting
+    public ServiceConnection getServiceConnection() {
+        return mConnection;
+    }
+
+    @VisibleForTesting
+    public ComponentName getServiceName() {
+        return mServiceName;
+    }
+
 }
