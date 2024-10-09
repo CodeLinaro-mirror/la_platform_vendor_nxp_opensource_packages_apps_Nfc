@@ -2164,6 +2164,11 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             return true;
         }
 
+      @Override
+      public List<String> fetchActiveNfceeList() throws RemoteException {
+            return new ArrayList<String>();
+        }
+
         @Override
         public boolean isObserveModeSupported() {
             if (!isNfcEnabled()) {
@@ -2474,7 +2479,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public void updateDiscoveryTechnology(IBinder binder, int pollTech, int listenTech)
+        public void updateDiscoveryTechnology(IBinder binder, int pollTech, int listenTech, String packageName)
                 throws RemoteException {
             NfcPermissions.enforceUserPermissions(mContext);
             int callingUid = Binder.getCallingUid();
@@ -2586,14 +2591,13 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public void setReaderMode(IBinder binder, IAppCallback callback, int flags, Bundle extras)
+        public void setReaderMode(IBinder binder, IAppCallback callback, int flags, Bundle extras, String packageName)
                 throws RemoteException {
             int callingUid = Binder.getCallingUid();
             int callingPid = Binder.getCallingPid();
             boolean privilegedCaller = isPrivileged(callingUid)
                     || NfcPermissions.checkAdminPermissions(mContext);
             // Allow non-foreground callers with system uid or systemui
-            String packageName = getPackageNameFromUid(callingUid);
             if (packageName != null) {
                 privilegedCaller |= packageName.equals(SYSTEM_UI);
             }
@@ -2960,7 +2964,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public boolean enableReaderOption(boolean enable) {
+        public boolean enableReaderOption(boolean enable, String pkg) {
             Log.d(TAG, "enableReaderOption enabled=" + enable);
             if (!mReaderOptionCapable) return false;
             NfcPermissions.enforceAdminPermissions(mContext);
@@ -3065,10 +3069,10 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             }
         }
 
-       /* @Override
+        @Override
         public void notifyTestHceData(int technology, byte[] data) {
             onHostCardEmulationData(technology, data);
-        }*/
+        }
         
         @Override
         public void notifyHceDeactivated() {

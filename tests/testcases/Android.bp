@@ -4,7 +4,7 @@ package {
 }
 
 android_test {
-    name: "NfcTestCases",
+    name: "NqNfcTestCases",
     defaults: ["NqNfcNciDefaults"],
     platform_apis: true,
 
