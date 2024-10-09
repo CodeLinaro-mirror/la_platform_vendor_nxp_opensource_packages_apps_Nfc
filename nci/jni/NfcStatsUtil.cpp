@@ -19,7 +19,7 @@
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <log/log.h>
-#include <statslog_nfc.h>
+#include <nqstatslog_nfc.h>
 
 #include "nfc_api.h"
 
@@ -52,9 +52,7 @@ void NfcStatsUtil::logNfcTagType(int protocol, int discoveryMode) {
     tagType = nfc::stats::NFC_TAG_TYPE_OCCURRED__TYPE__TAG_MIFARE_CLASSIC;
   } else if (protocol == NFC_PROTOCOL_ISO_DEP) {
     if ((discoveryMode == NFC_DISCOVERY_TYPE_POLL_A) ||
-        (discoveryMode == NFC_DISCOVERY_TYPE_POLL_A_ACTIVE) ||
-        (discoveryMode == NFC_DISCOVERY_TYPE_LISTEN_A) ||
-        (discoveryMode == NFC_DISCOVERY_TYPE_LISTEN_A_ACTIVE)) {
+        (discoveryMode == NFC_DISCOVERY_TYPE_LISTEN_A)) {
       tagType = nfc::stats::NFC_TAG_TYPE_OCCURRED__TYPE__TAG_TYPE_4A;
     } else if ((discoveryMode == NFC_DISCOVERY_TYPE_POLL_B) ||
                (discoveryMode == NFC_DISCOVERY_TYPE_POLL_B_PRIME) ||

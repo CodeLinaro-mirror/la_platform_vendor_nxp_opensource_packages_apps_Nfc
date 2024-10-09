@@ -151,7 +151,7 @@ static bool sGotDeactivate = false;
 static uint32_t sCheckNdefMaxSize = 0;
 static bool sCheckNdefCardReadOnly = false;
 static jboolean sCheckNdefWaitingForComplete = JNI_FALSE;
-static bool sIsTagPresent = true;
+static bool sIsTagPresent = false;
 static tNFA_STATUS sMakeReadonlyStatus = NFA_STATUS_FAILED;
 static jboolean sMakeReadonlyWaitingForComplete = JNI_FALSE;
 static int sCurrentConnectedTargetType = TARGET_TYPE_UNKNOWN;
@@ -1528,7 +1528,7 @@ TheEnd:
 **
 *******************************************************************************/
 void nativeNfcTag_resetPresenceCheck() {
-  sIsTagPresent = true;
+  sIsTagPresent = false;
   sIsoDepPresCheckCnt = 0;
   sPresCheckErrCnt = 0;
   sIsoDepPresCheckAlternate = false;
@@ -1574,7 +1574,8 @@ static jboolean nativeNfcTag_doPresenceCheck(JNIEnv*, jobject) {
   if (sCurrentConnectedTargetProtocol == TARGET_TYPE_KOVIO_BARCODE) {
     LOG(DEBUG) << StringPrintf("%s: Kovio, force deactivate handling",
                                __func__);
-    tNFA_DEACTIVATED deactivated = {NFA_DEACTIVATE_TYPE_IDLE};
+    tNFA_DEACTIVATED deactivated = {NFA_DEACTIVATE_TYPE_IDLE,
+                                    NCI_DEACTIVATE_REASON_DH_REQ};
     {
       SyncEventGuard g(gDeactivatedEvent);
       gActivated = false;  // guard this variable from multi-threaded access
@@ -1652,7 +1653,7 @@ static jboolean nativeNfcTag_doPresenceCheck(JNIEnv*, jobject) {
 #if (NXP_EXTNS == TRUE)
     if((sCurrentConnectedTargetProtocol == NFA_PROTOCOL_T2T) &&
        (sCurrentRfInterface == NFA_INTERFACE_FRAME) &&
-       (!NfcTag::getInstance().isMifareUltralight())) {
+       (!NfcTag::getInstance().isNfcForumT2T())) {
        /* Only applicable for Type2 tag which has SAK value other than 0
         (as defined in NFC Digital Protocol, section 4.8.2(SEL_RES)) */
       uint8_t RW_TAG_SLP_REQ[] = {0x50, 0x00};

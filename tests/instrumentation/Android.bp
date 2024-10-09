@@ -1,4 +1,5 @@
 package {
+    default_team: "trendy_team_fwk_nfc",
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
@@ -20,6 +21,8 @@ android_test {
         "androidx.test.rules",
         "androidx.test.ext.junit",
         "truth",
+        "androidx.test.espresso.core",
+        "androidx.test.espresso.intents-nodeps",
     ],
 
     // Include all test java files.
@@ -31,7 +34,11 @@ android_test {
 
     platform_apis: true,
 
-    test_suites: ["device-tests"],
+    test_suites: [
+        "device-tests",
+        "device-pixel-tests",
+        "device-platinum-tests",
+    ],
 
     instrumentation_for: "NQNfcNci",
 }
