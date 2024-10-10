@@ -2486,7 +2486,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             boolean privilegedCaller = isPrivileged(callingUid)
                     || NfcPermissions.checkAdminPermissions(mContext);
             // Allow non-foreground callers with system uid or systemui
-            String packageName = getPackageNameFromUid(callingUid);
+            packageName = getPackageNameFromUid(callingUid);
             if (packageName != null) {
                 privilegedCaller |= packageName.equals(SYSTEM_UI);
             }
@@ -2899,18 +2899,10 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             return NfcAdapter.TAG_INTENT_APP_PREF_RESULT_SUCCESS;
         }
 
-        @Override
-        public boolean setControllerAlwaysOn(boolean value) throws RemoteException {
+	@Override
+        public void setControllerAlwaysOn(int mode) throws RemoteException {
             NfcPermissions.enforceSetControllerAlwaysOnPermissions(mContext);
-            if (!mIsAlwaysOnSupported) {
-                return false;
-            }
-            if (value) {
-                new EnableDisableTask().execute(TASK_ENABLE_ALWAYS_ON);
-            } else {
-                new EnableDisableTask().execute(TASK_DISABLE_ALWAYS_ON);
-            }
-            return true;
+            return;
         }
 
         @Override

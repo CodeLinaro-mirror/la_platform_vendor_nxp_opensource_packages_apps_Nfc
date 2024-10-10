@@ -99,21 +99,22 @@ public class NfcShellCommand extends BasicShellCommandHandler {
                     boolean enable_polling =
                             getNextArgRequiredTrueOrFalse("enable-polling", "disable-polling");
                     int flags = enable_polling ? ENABLE_POLLING_FLAGS : DISABLE_POLLING_FLAGS;
-                    mNfcService.mNfcAdapter.setReaderMode(new Binder(), null, flags, null);
+                    mNfcService.mNfcAdapter.setReaderMode(
+	                    new Binder(), null, flags, null, mContext.getPackageName());
                     return 0;
                 case "set-observe-mode":
                     boolean enable = getNextArgRequiredTrueOrFalse("enable", "disable");
                     mNfcService.mNfcAdapter.setObserveMode(enable, mContext.getPackageName());
                     return 0;
                 case "set-controller-always-on":
-                    boolean enableAlwaysOn = getNextArgRequiredTrueOrFalse("enable", "disable");
-                    mNfcService.mNfcAdapter.setControllerAlwaysOn(enableAlwaysOn);
+                    int mode = Integer.parseInt(getNextArgRequired());
+                    mNfcService.mNfcAdapter.setControllerAlwaysOn(mode);
                     return 0;
                 case "set-discovery-tech":
                     int pollTech = Integer.parseInt(getNextArg());
                     int listenTech = Integer.parseInt(getNextArg());
                     mNfcService.mNfcAdapter.updateDiscoveryTechnology(
-                            new Binder(), pollTech, listenTech);
+                            new Binder(), pollTech, listenTech, mContext.getPackageName());
                     return 0;
                 default:
                     return handleDefaultCommands(cmd);

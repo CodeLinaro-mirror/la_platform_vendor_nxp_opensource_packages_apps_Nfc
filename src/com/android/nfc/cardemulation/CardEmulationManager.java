@@ -872,6 +872,11 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         }
 
         @Override
+        public boolean isEuiccSupported() {
+            return true;
+        }
+
+	@Override
         public boolean isDefaultPaymentRegistered() throws RemoteException {
             if (mWalletRoleObserver.isWalletRoleFeatureEnabled()) {
                 int callingUserId = Binder.getCallingUserHandle().getIdentifier();
