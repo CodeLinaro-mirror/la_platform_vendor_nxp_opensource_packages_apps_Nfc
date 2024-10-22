@@ -937,6 +937,26 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
 
             return;
         }
+
+        @Override
+        public void overwriteRoutingTable(int userHandle, String aids,
+            String protocol, String technology) {
+        }
+
+        @Override
+        public List<String> getRoutingStatus() {
+            return List.of();
+        }
+
+        @Override
+        public void setAutoChangeStatus(boolean state) {
+        }
+
+        @Override
+        public boolean isAutoChangeEnabled() {
+            return false;
+        }
+
     }
 
     final ForegroundUtils.Callback mForegroundCallback = new ForegroundCallbackImpl();
