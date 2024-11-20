@@ -70,6 +70,7 @@ import android.net.Uri;
 import android.nfc.AvailableNfcAntenna;
 import android.nfc.Constants;
 import android.nfc.ErrorCodes;
+import android.nfc.Entry;
 import android.nfc.FormatException;
 import android.nfc.IAppCallback;
 import android.nfc.INfcAdapter;
@@ -2087,6 +2088,15 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
+        public void indicateDataMigration(boolean inProgress, String pkg) throws RemoteException {
+        }
+        @Override
+        public List<Entry> getRoutingTableEntryList() throws RemoteException {
+            if (DBG) Log.i(TAG, "getRoutingTableEntry");
+            return List.of();
+        }
+
+	@Override
         public boolean enable(String pkg) throws RemoteException {
             boolean isDeviceOrProfileOwner = isDeviceOrProfileOwner(Binder.getCallingUid(), pkg);
             if (!NfcPermissions.checkAdminPermissions(mContext)

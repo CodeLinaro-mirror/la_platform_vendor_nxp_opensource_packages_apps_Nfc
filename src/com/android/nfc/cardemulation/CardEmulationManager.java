@@ -51,6 +51,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.nfc.Constants;
 import android.nfc.INfcCardEmulation;
+import android.nfc.INfcEventListener;
 import android.nfc.INfcFCardEmulation;
 import android.nfc.NfcAdapter;
 import android.nfc.cardemulation.AidGroup;
@@ -889,7 +890,16 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         }
     //}
 
-    @Override
+        @Override
+        public void registerNfcEventListener(INfcEventListener listener) {
+        }
+
+        @Override
+        public void unregisterNfcEventListener(
+            INfcEventListener listener) {
+        }
+
+        @Override
         public void overrideRoutingTable(int userHandle, String protocol, String technology, String pkg) {
 
             int callingUid = Binder.getCallingUid();
