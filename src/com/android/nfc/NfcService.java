@@ -2090,7 +2090,17 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         @Override
         public void indicateDataMigration(boolean inProgress, String pkg) throws RemoteException {
         }
+
         @Override
+        public int commitRouting() throws RemoteException {
+            if (DBG) Log.i(TAG, "commitRouting");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            // Incompatible type: mDeviceHost.commitRouting()
+            // return mDeviceHost.commitRouting();
+            return -1;
+        }
+
+	@Override
         public List<Entry> getRoutingTableEntryList() throws RemoteException {
             if (DBG) Log.i(TAG, "getRoutingTableEntry");
             return List.of();
