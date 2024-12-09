@@ -75,6 +75,7 @@ import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.provider.Settings;
 import android.sysprop.NfcProperties;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 import android.util.proto.ProtoOutputStream;
 import java.util.Map;
@@ -897,7 +898,19 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         public void registerNfcEventListener(INfcEventListener listener) {
         }
 
+       @Override
+        public int setDefaultNfcSubscriptionId(int subscriptionId, String pkgName) {
+            // TODO Implement me
+            return CardEmulation.SET_SUBSCRIPTION_ID_STATUS_FAILED_INVALID_SUBSCRIPTION_ID;
+        }
+
         @Override
+        public int getDefaultNfcSubscriptionId(String pkgName) {
+            // TODO Implement me
+            return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+        }
+
+	@Override
         public void unregisterNfcEventListener(
             INfcEventListener listener) {
         }

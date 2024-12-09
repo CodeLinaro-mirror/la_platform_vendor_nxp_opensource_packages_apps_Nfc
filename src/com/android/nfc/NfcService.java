@@ -2956,7 +2956,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
         @Override
         public boolean isTagIntentAppPreferenceSupported() throws RemoteException {
-            NfcPermissions.enforceAdminPermissions(mContext);
             return mIsTagAppPrefSupported;
         }
         @Override
@@ -2973,6 +2972,21 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             NfcPermissions.enforceAdminPermissions(mContext);
             if (!mIsTagAppPrefSupported) throw new UnsupportedOperationException();
             return setTagAppPreferenceInternal(userId, pkg, allow);
+        }
+
+        @Override
+        public boolean isTagIntentAllowed(String pkg, int userId) throws RemoteException {
+            if (!android.nfc.Flags.nfcCheckTagIntentPreference()) {
+                return true;
+            }
+            if (!mIsTagAppPrefSupported) {
+                return true;
+            }
+            HashMap<String, Boolean> map;
+            synchronized (NfcService.this) {
+                map = mTagAppPrefList.getOrDefault(userId, new HashMap<>());
+            }
+            return map.getOrDefault(pkg, true);
         }
 
         @Override
