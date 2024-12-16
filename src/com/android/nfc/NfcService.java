@@ -70,6 +70,7 @@ import android.net.Uri;
 import android.nfc.AvailableNfcAntenna;
 import android.nfc.Constants;
 import android.nfc.ErrorCodes;
+import android.nfc.Entry;
 import android.nfc.FormatException;
 import android.nfc.IAppCallback;
 import android.nfc.INfcAdapter;
@@ -2087,6 +2088,25 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
+        public void indicateDataMigration(boolean inProgress, String pkg) throws RemoteException {
+        }
+
+        @Override
+        public int commitRouting() throws RemoteException {
+            if (DBG) Log.i(TAG, "commitRouting");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            // Incompatible type: mDeviceHost.commitRouting()
+            // return mDeviceHost.commitRouting();
+            return -1;
+        }
+
+	@Override
+        public List<Entry> getRoutingTableEntryList() throws RemoteException {
+            if (DBG) Log.i(TAG, "getRoutingTableEntry");
+            return List.of();
+        }
+
+	@Override
         public boolean enable(String pkg) throws RemoteException {
             boolean isDeviceOrProfileOwner = isDeviceOrProfileOwner(Binder.getCallingUid(), pkg);
             if (!NfcPermissions.checkAdminPermissions(mContext)
@@ -2936,7 +2956,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
         @Override
         public boolean isTagIntentAppPreferenceSupported() throws RemoteException {
-            NfcPermissions.enforceAdminPermissions(mContext);
             return mIsTagAppPrefSupported;
         }
         @Override
@@ -2953,6 +2972,21 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             NfcPermissions.enforceAdminPermissions(mContext);
             if (!mIsTagAppPrefSupported) throw new UnsupportedOperationException();
             return setTagAppPreferenceInternal(userId, pkg, allow);
+        }
+
+        @Override
+        public boolean isTagIntentAllowed(String pkg, int userId) throws RemoteException {
+            if (!android.nfc.Flags.nfcCheckTagIntentPreference()) {
+                return true;
+            }
+            if (!mIsTagAppPrefSupported) {
+                return true;
+            }
+            HashMap<String, Boolean> map;
+            synchronized (NfcService.this) {
+                map = mTagAppPrefList.getOrDefault(userId, new HashMap<>());
+            }
+            return map.getOrDefault(pkg, true);
         }
 
         @Override
