@@ -54,7 +54,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.nfc.Constants;
 import android.nfc.INfcCardEmulation;
-import android.nfc.INfcEventListener;
+import android.nfc.INfcEventCallback;
 import android.nfc.INfcFCardEmulation;
 import android.nfc.NfcAdapter;
 import android.nfc.cardemulation.AidGroup;
@@ -895,8 +895,8 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
     //}
 
         @Override
-        public void registerNfcEventListener(INfcEventListener listener) {
-        }
+	public void registerNfcEventCallback(INfcEventCallback listener) {
+	}
 
        @Override
         public int setDefaultNfcSubscriptionId(int subscriptionId, String pkgName) {
@@ -911,8 +911,8 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         }
 
 	@Override
-        public void unregisterNfcEventListener(
-            INfcEventListener listener) {
+	public void unregisterNfcEventCallback(
+		INfcEventCallback listener) {
         }
 
         @Override
