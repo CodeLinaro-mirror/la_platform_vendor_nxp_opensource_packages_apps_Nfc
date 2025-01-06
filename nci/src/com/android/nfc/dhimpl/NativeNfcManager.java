@@ -817,7 +817,7 @@ public class NativeNfcManager implements DeviceHost {
                 observeModeStatsd,
                 proprietaryCaps.isPollingFrameNotificationSupported(),
                 proprietaryCaps.isPowerSavingModeSupported(),
-                proprietaryCaps.isAutotransactPollingLoopFilterSupported());
+                proprietaryCaps.isAutotransactPollingLoopFilterSupported(), 0);
     }
 
     private native void doSetNfceePowerAndLinkCtrl(boolean enable);
