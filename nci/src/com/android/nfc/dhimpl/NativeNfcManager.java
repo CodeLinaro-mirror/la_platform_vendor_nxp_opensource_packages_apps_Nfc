@@ -229,7 +229,7 @@ public class NativeNfcManager implements DeviceHost {
     }
 
     boolean isObserveModeSupportedWithoutRfDeactivation() {
-        if (!com.android.nfc.flags.Flags.observeModeWithoutRf()) {
+        if (!com.android.nfc.nqflags.Flags.observeModeWithoutRf()) {
             return false;
         }
         return mProprietaryCaps != null &&
@@ -690,21 +690,21 @@ public class NativeNfcManager implements DeviceHost {
 
     private void notifyEeAidSelected(byte[] aid, String eventSrc) {
         Log.i(TAG, "AID: " + HexFormat.of().formatHex(aid) + " selected by " + eventSrc);
-        if (com.android.nfc.flags.Flags.eeAidSelect()) {
+        if (com.android.nfc.nqflags.Flags.eeAidSelect()) {
             mListener.onSeSelected();
         }
     }
 
     private void notifyEeProtocolSelected(int protocol, String eventSrc) {
         Log.i(TAG, "Protocol: " + protocol + " selected by " + eventSrc);
-        if (com.android.nfc.flags.Flags.eeAidSelect()) {
+        if (com.android.nfc.nqflags.Flags.eeAidSelect()) {
             mListener.onSeSelected();
         }
     }
 
     private void notifyEeTechSelected(int tech, String eventSrc) {
         Log.i(TAG, "Tech: " + tech + " selected by " + eventSrc);
-        if (com.android.nfc.flags.Flags.eeAidSelect()) {
+        if (com.android.nfc.nqflags.Flags.eeAidSelect()) {
             mListener.onSeSelected();
         }
     }
@@ -876,7 +876,7 @@ public class NativeNfcManager implements DeviceHost {
                 observeModeStatsd,
                 proprietaryCaps.isPollingFrameNotificationSupported(),
                 proprietaryCaps.isPowerSavingModeSupported(),
-                proprietaryCaps.isAutotransactPollingLoopFilterSupported());
+                proprietaryCaps.isAutotransactPollingLoopFilterSupported(), 0);
     }
 
     public void notifyObserveModeChanged(boolean enabled) {

@@ -878,7 +878,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         mRfFieldActivated = true;
         try {
             if (mNfcOemExtensionCallback != null) {
-                mNfcOemExtensionCallback.onRfFieldActivated(mRfFieldActivated);
+                mNfcOemExtensionCallback.onRfFieldDetected(mRfFieldActivated);
             }
         } catch (RemoteException e) {
             Log.e(TAG, "Failed to send onRemoteFieldActivated", e);
@@ -891,7 +891,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         mRfFieldActivated = false;
         try {
             if (mNfcOemExtensionCallback != null) {
-                mNfcOemExtensionCallback.onRfFieldActivated(mRfFieldActivated);
+                mNfcOemExtensionCallback.onRfFieldDetected(mRfFieldActivated);
             }
         } catch (RemoteException e) {
             Log.e(TAG, "Failed to send onRemoteFieldDeactivated", e);
@@ -2400,6 +2400,29 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     }
 
     final class NfcAdapterService extends INfcAdapter.Stub {
+        @Override
+        public void indicateDataMigration(boolean inProgress, String pkg) throws RemoteException {
+        }
+
+        @Override
+        public long getMaxPausePollingTimeoutMs() {
+            if (DBG) Log.i(TAG, "getMaxPausePollingTimeoutMs");
+            return MAX_POLLING_PAUSE_TIMEOUT;
+        }
+
+	@Override
+        public int commitRouting() throws RemoteException {
+            if (DBG) Log.i(TAG, "commitRouting");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            // Incompatible type: mDeviceHost.commitRouting()
+            // return mDeviceHost.commitRouting();
+            return -1;
+        }
+	@Override
+        public List<Entry> getRoutingTableEntryList() throws RemoteException {
+            if (DBG) Log.i(TAG, "getRoutingTableEntry");
+            return List.of();
+        }
 
         @Override
         public boolean enable(String pkg) throws RemoteException {
@@ -2488,6 +2511,11 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             new EnableDisableTask().execute(TASK_DISABLE);
 
             return true;
+        }
+
+      @Override
+      public Map<String, Integer> fetchActiveNfceeList() throws RemoteException {
+            return new HashMap<String, Integer>();
         }
 
         @Override
@@ -2589,50 +2617,39 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public void pausePolling(int timeoutInMs) {
+        public int pausePolling(long timeoutInMs) {
             NfcPermissions.enforceAdminPermissions(mContext);
 
             checkAndHandleRemovalDetectionMode(false);
-            synchronized (mDiscoveryLock) {
-                if (!mRfDiscoveryStarted) {
-                    if (DBG) Log.d(TAG, "Polling is already disabled!");
-                    return;
-                }
+            if (timeoutInMs <= 0 || timeoutInMs > MAX_POLLING_PAUSE_TIMEOUT) {
+                Log.e(TAG, "Refusing to pause polling for " + timeoutInMs + "ms.");
+                return NfcOemExtension.POLLING_STATE_CHANGE_ALREADY_IN_REQUESTED_STATE;
             }
 
             synchronized (NfcService.this) {
                 mPollingPaused = true;
                 mDeviceHost.disableDiscovery();
-                if (timeoutInMs <= 0 || timeoutInMs > MAX_POLLING_PAUSE_TIMEOUT) {
-                    Log.d(TAG, "Invalid timeout " + timeoutInMs + "ms, hence no resume polling!");
-                    return;
-                }
                 mHandler.sendMessageDelayed(
                         mHandler.obtainMessage(MSG_RESUME_POLLING), timeoutInMs);
+                return NfcOemExtension.POLLING_STATE_CHANGE_SUCCEEDED;
             }
         }
 
         @Override
-        public void resumePolling() {
+        public int resumePolling() {
             NfcPermissions.enforceAdminPermissions(mContext);
-            boolean rfDiscoveryStarted;
-            synchronized (mDiscoveryLock) {
-                rfDiscoveryStarted = mRfDiscoveryStarted;
-            }
+
             synchronized (NfcService.this) {
                 if (!mPollingPaused) {
-                    if (rfDiscoveryStarted) {
-                        if (DBG) Log.d(TAG, "Polling is already enabled!");
-                        return;
-                    } else {
-                        if (DBG) Log.d(TAG, "Enable polling explicitly!");
-                    }
+                    return NfcOemExtension.POLLING_STATE_CHANGE_ALREADY_IN_REQUESTED_STATE;
                 }
+
                 mHandler.removeMessages(MSG_RESUME_POLLING);
                 mPollingPaused = false;
                 new ApplyRoutingTask().execute();
+                if (DBG) Log.d(TAG, "Polling is resumed");
+		return NfcOemExtension.POLLING_STATE_CHANGE_SUCCEEDED;
             }
-            if (DBG) Log.d(TAG, "Polling is resumed");
         }
 
         @Override
@@ -3035,6 +3052,11 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
+        public IT4tNdefNfcee getT4tNdefNfceeInterface() throws RemoteException {
+            return mT4tNdefNfceeService;
+        }
+
+        @Override
         public void addNfcUnlockHandler(INfcUnlockHandler unlockHandler, int[] techList) {
             NfcPermissions.enforceAdminPermissions(mContext);
 
@@ -3293,7 +3315,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
         @Override
         public boolean isTagIntentAppPreferenceSupported() throws RemoteException {
-            NfcPermissions.enforceAdminPermissions(mContext);
             return mIsTagAppPrefSupported;
         }
         @Override
@@ -3310,6 +3331,21 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             NfcPermissions.enforceAdminPermissions(mContext);
             if (!mIsTagAppPrefSupported) throw new UnsupportedOperationException();
             return setTagAppPreferenceInternal(userId, pkg, allow);
+        }
+
+        @Override
+        public boolean isTagIntentAllowed(String pkg, int userId) throws RemoteException {
+            if (!android.nfc.Flags.nfcCheckTagIntentPreference()) {
+                return true;
+            }
+            if (!mIsTagAppPrefSupported) {
+                return true;
+            }
+            HashMap<String, Boolean> map;
+            synchronized (NfcService.this) {
+                map = mTagAppPrefList.getOrDefault(userId, new HashMap<>());
+            }
+            return map.getOrDefault(pkg, true);
         }
 
         @Override
@@ -3537,14 +3573,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             NfcPermissions.enforceAdminPermissions(mContext);
             mNfcOemExtensionCallback = null;
         }
-        //@Override
-        public List<String> fetchActiveNfceeList() throws RemoteException {
-            List<String> list = new ArrayList<String>();
-            if (isNfcEnabled()) {
-                list = mDeviceHost.dofetchActiveNfceeList();
-            }
-            return list;
-        }
 
         @Override
         public void clearPreference() throws RemoteException {
@@ -3601,7 +3629,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 try {
                     if (DBG) Log.i(TAG, "updateNfCState");
                     mNfcOemExtensionCallback.onCardEmulationActivated(mCardEmulationActivated);
-                    mNfcOemExtensionCallback.onRfFieldActivated(mRfFieldActivated);
+                    mNfcOemExtensionCallback.onRfFieldDetected(mRfFieldActivated);
                     mNfcOemExtensionCallback.onRfDiscoveryStarted(mRfDiscoveryStarted);
                 } catch (RemoteException e) {
                     Log.e(TAG, "Failed to update OemExtension with updateNfCState", e);
@@ -4854,6 +4882,40 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
     };
+
+    class T4tNdefNfceeService extends IT4tNdefNfcee.Stub {
+
+        @Override
+        public int writeData(final int fileId, byte[] data) {
+          return T4tNdefNfcee.WRITE_DATA_ERROR_INTERNAL;
+        }
+
+        @Override
+        public byte[] readData(final int fileId) {
+          byte[] readData = {};
+          return readData;
+        }
+
+        @Override
+        public T4tNdefNfceeCcFileInfo readCcfile() {
+            return null;
+        }
+
+        @Override
+        public int clearNdefData() {
+            return 0;
+        }
+
+        @Override
+        public boolean isNdefOperationOngoing() {
+            return false;
+        }
+
+        @Override
+        public boolean isNdefNfceeEmulationSupported() {
+            return false;
+        }
+    }
 
     final class NxpNfcAdapterExtrasService extends INxpNfcAdapterExtras.Stub {
     private Bundle writeNoException() {

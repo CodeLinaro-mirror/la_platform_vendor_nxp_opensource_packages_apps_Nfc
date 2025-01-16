@@ -7,10 +7,10 @@
       "name": "CtsNfcTestCases"
     },
     {
-      "name": "NfcNciUnitTests"
+      "name": "NqNfcNciUnitTests"
     }
     {
-      "name": "NfcNciInstrumentationTests"
+      "name": "NqNfcNciInstrumentationTests"
     }
   ],
   "postsubmit": [
@@ -23,7 +23,7 @@
       "keywords": ["primary-device"]
     },
     {
-      "name": "libnfc-nci-jni-tests",
+      "name": "libnfc-nqnci-jni-tests",
       "keywords": ["primary-device"]
     }
   ],

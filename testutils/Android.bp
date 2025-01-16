@@ -61,7 +61,7 @@ python_library {
 }
 
 android_library {
-    name: "pn532-kt",
+    name: "Nqpn532-kt",
     srcs: [
         "pn532/src/**/*.kt",
     ],

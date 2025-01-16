@@ -44,7 +44,7 @@ java_defaults {
         "nqnfc_flags_lib",
     ],
     flags_packages: [
-        "nfc_aconfig_flags",
+        "nqnfc_aconfig_flags",
     ],
     privileged: true,
     optimize: {
@@ -77,7 +77,7 @@ android_app {
         // if sdk_version="" this gets automatically included, but here we need to add manually.
         "framework-res",
     ],
-    jni_libs: ["libnfc_nci_jni"],
+    jni_libs: ["libsn100nfc_nci_jni"],
     required: [
         // Provide a default libnfc-nci.conf in /system/etc for devices that
         // does not ship one in /product

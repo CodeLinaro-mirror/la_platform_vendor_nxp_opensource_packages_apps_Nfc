@@ -44,6 +44,7 @@ android_test {
     srcs: [
         "src/**/*.java",
         ":framework-nfc-updatable-sources",
+        ":framework-nfc-non-updatable-sources",
     ],
 
     min_sdk_version: "current",

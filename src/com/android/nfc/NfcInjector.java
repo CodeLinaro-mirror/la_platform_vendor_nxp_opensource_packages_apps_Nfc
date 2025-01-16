@@ -45,7 +45,7 @@ import com.android.nfc.cardemulation.CardEmulationManager;
 
 import com.android.nfc.cardemulation.util.StatsdUtils;
 import com.android.nfc.dhimpl.NativeNfcManager;
-import com.android.nfc.flags.FeatureFlags;
+import com.android.nfc.nqflags.FeatureFlags;
 import com.android.nfc.handover.HandoverDataParser;
 
 import java.io.File;

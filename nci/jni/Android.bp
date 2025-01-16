@@ -4,20 +4,21 @@ package {
 }
 
 cc_library_static {
-    name: "libnfc_nci_jni_static",
-    defaults: ["libnfc_nci_jni_defaults"],
+    name: "libnfc_nqnci_jni_static",
+    defaults: ["libnfc_nqnci_jni_defaults"],
     visibility: [
-        "//packages/apps/Nfc/nci/jni",
+     "//vendor/nxp/opensource/commonsys/packages/apps/Nfc/nci/jni",
     ],
 }
 
 cc_library_shared {
-    name: "libnfc_nci_jni",
-    defaults: ["libnfc_nci_jni_defaults"],
+    name: "libsn100nfc_nci_jni",
+    system_ext_specific: true,
+    defaults: ["libnfc_nqnci_jni_defaults"],
 }
 
 cc_defaults {
-    name: "libnfc_nci_jni_defaults",
+    name: "libnfc_nqnci_jni_defaults",
 
     cflags:
      ["-DNXP_EXTNS=TRUE",
@@ -59,6 +60,7 @@ cc_defaults {
         "libbinder_ndk",
         "libstatssocket",
         "libz",
+        "vendor.nxp.hardware.nfc@2.0",
         "vendor.nxp.nxpnfc@2.0",
         "vendor.nxp.nxpnfc_aidl-V1-ndk",
     ],
@@ -108,7 +110,7 @@ cc_defaults {
 }
 
 cc_test {
-    name: "libnfc-nci-jni-tests",
+    name: "libnfc-nqnci-jni-tests",
 
     srcs: [
         "NfcTagTest.cpp",
@@ -133,7 +135,7 @@ cc_test {
         "libgmock",
         "libgtest",
         "libsn100nfc-nci",
-        "libnfc_nci_jni_static",
+        "libnfc_nqnci_jni_static",
         "android.hardware.nfc@1.0",
         "android.hardware.nfc@1.1",
         "android.hardware.nfc@1.2",
@@ -141,7 +143,7 @@ cc_test {
         "android.hardware.nfc-V2-ndk",
         "libnfcutils",
         "libnfc-nci_flags",
-        "libstatslog_nfc",
+        "nqlibstatslog_nfc",
         "android_nfc_flags_aconfig_c_lib",
         "server_configurable_flags",
         "libxml2",

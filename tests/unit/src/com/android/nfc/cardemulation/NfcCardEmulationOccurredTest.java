@@ -288,8 +288,6 @@ public final class NfcCardEmulationOccurredTest {
 
     @Test
     public void testOnPreferredPaymentServiceChanged() {
-        if (!mNfcSupported) return;
-
         ComponentName componentName = mock(ComponentName.class);
         when(componentName.getPackageName()).thenReturn("com.android.nfc");
         int userId = 0;

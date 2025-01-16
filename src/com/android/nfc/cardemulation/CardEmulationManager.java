@@ -39,6 +39,9 @@ import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import android.app.ActivityManager;
+
+import static android.nfc.cardemulation.CardEmulation.SET_SERVICE_ENABLED_STATUS_FAILURE_FEATURE_UNSUPPORTED;
 
 import android.annotation.TargetApi;
 import android.annotation.FlaggedApi;
@@ -51,6 +54,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.nfc.Constants;
 import android.nfc.INfcCardEmulation;
+import android.nfc.INfcEventCallback;
 import android.nfc.INfcFCardEmulation;
 import android.nfc.INfcOemExtensionCallback;
 import android.nfc.NfcAdapter;
@@ -73,6 +77,7 @@ import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.provider.Settings;
 import android.sysprop.NfcProperties;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 import android.util.proto.ProtoOutputStream;
 import java.util.Map;
@@ -907,14 +912,15 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         }
 
         @Override
-        public boolean setServiceEnabledForCategoryOther(int userId,
+        public int setServiceEnabledForCategoryOther(int userId,
                 ComponentName app, boolean status) throws RemoteException {
             if (!mContext.getResources().getBoolean(R.bool.enable_service_for_category_other))
-              return false;
+                return SET_SERVICE_ENABLED_STATUS_FAILURE_FEATURE_UNSUPPORTED;
             NfcPermissions.enforceUserPermissions(mContext);
 
             return mServiceCache.registerOtherForService(userId, app, status);
         }
+
 
         @Override
         public boolean isDefaultPaymentRegistered() throws RemoteException {
@@ -929,7 +935,27 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         }
     //}
 
-    @Override
+        @Override
+        public void registerNfcEventCallback(INfcEventCallback listener) {
+        }
+
+        @Override
+     	public void unregisterNfcEventCallback(
+		INfcEventCallback listener) {
+        }
+		
+       @Override
+        public int setDefaultNfcSubscriptionId(int subscriptionId, String pkgName) {
+            // TODO Implement me
+            return CardEmulation.SET_SUBSCRIPTION_ID_STATUS_FAILED_INVALID_SUBSCRIPTION_ID;
+        }
+
+        @Override
+        public int getDefaultNfcSubscriptionId(String pkgName) {
+            // TODO Implement me
+            return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+        }
+      @Override
         public void overrideRoutingTable(int userHandle, String protocol, String technology,
                 String pkg) {
 
