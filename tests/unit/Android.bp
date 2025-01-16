@@ -9,9 +9,9 @@ android_test {
     certificate: "platform",
 
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
-        "android.test.mock.stubs",
+        "android.test.runner.stubs.system",
+        "android.test.base.stubs.system",
+        "android.test.mock.stubs.system",
         "framework-nfc.impl",
         "unsupportedappusage",
         "com.nxp.nfc.nq",
@@ -51,8 +51,12 @@ android_test {
     uses_libs: ["com.nxp.nfc.nq"],
 
     platform_apis: true,
+    min_sdk_version: "current",
 
-    test_suites: ["device-tests"],
+    test_suites: [
+        "device-tests",
+        "mts-nfc",
+    ],
 
     instrumentation_for: "NQNfcNci",
 }

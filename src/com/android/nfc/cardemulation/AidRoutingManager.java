@@ -37,6 +37,7 @@ package com.android.nfc.cardemulation;
 import android.sysprop.NfcProperties;
 import android.util.Log;
 import android.util.SparseArray;
+import androidx.annotation.VisibleForTesting;
 import android.content.Context;
 import android.app.ActivityThread;
 import android.app.ActivityManager;
@@ -60,7 +61,6 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Hashtable;
-import androidx.annotation.VisibleForTesting;
 
 public class AidRoutingManager {
 
@@ -90,6 +90,8 @@ public class AidRoutingManager {
     // Used for backward compatibility in case application doesn't specify the
     // SE
     int mDefaultOffHostRoute;
+
+    int mDefaultFelicaRoute;
 
     // How the NFC controller can match AIDs in the routing table;
     // see AID_MATCHING constants
@@ -123,26 +125,24 @@ public class AidRoutingManager {
         int route;
         int aidInfo;
         int power;
+        List<String> unCheckedOffHostSE = new ArrayList<>();
     }
 
     public AidRoutingManager() {
         mDefaultRoute = mRoutingOptionManager.getDefaultRoute();
-        if (DBG)
-          Log.d(TAG, "mDefaultRoute=0x" + Integer.toHexString(mDefaultRoute));
+        if (DBG) Log.d(TAG, "mDefaultRoute=0x" + Integer.toHexString(mDefaultRoute));
         mDefaultOffHostRoute = mRoutingOptionManager.getDefaultOffHostRoute();
-        if (DBG)
-          Log.d(TAG, "mDefaultOffHostRoute=0x" + Integer.toHexString(mDefaultOffHostRoute));
+        if (DBG) Log.d(TAG, "mDefaultOffHostRoute=0x" + Integer.toHexString(mDefaultOffHostRoute));
+        mDefaultFelicaRoute = mRoutingOptionManager.getDefaultFelicaRoute();
+        if (DBG) Log.d(TAG, "mDefaultFelicaRoute=0x" + Integer.toHexString(mDefaultFelicaRoute));
         mOffHostRouteUicc = mRoutingOptionManager.getOffHostRouteUicc();
-        if (DBG)
-            Log.d(TAG, "mOffHostRouteUicc=" + Arrays.toString(mOffHostRouteUicc));
+        if (DBG) Log.d(TAG, "mOffHostRouteUicc=" + Arrays.toString(mOffHostRouteUicc));
         mOffHostRouteEse = mRoutingOptionManager.getOffHostRouteEse();
-        if (DBG)
-          Log.d(TAG, "mOffHostRouteEse=" + Arrays.toString(mOffHostRouteEse));
+        if (DBG) Log.d(TAG, "mOffHostRouteEse=" + Arrays.toString(mOffHostRouteEse));
         mAidMatchingSupport = mRoutingOptionManager.getAidMatchingSupport();
         if (DBG) Log.d(TAG, "mAidMatchingSupport=0x" + Integer.toHexString(mAidMatchingSupport));
         mDefaultAidRoute =   NfcService.getInstance().GetDefaultRouteEntry() >> 0x08;
-        if (DBG)
-          Log.d(TAG, "mDefaultAidRoute=0x" + Integer.toHexString(mDefaultAidRoute));
+        if (DBG) Log.d(TAG, "mDefaultAidRoute=0x" + Integer.toHexString(mDefaultAidRoute));
         mDefaultIsoDepRoute = mRoutingOptionManager.getDefaultIsoDepRoute();
         if (DBG) Log.d(TAG, "mDefaultIsoDepRoute=0x" + Integer.toHexString(mDefaultIsoDepRoute));
         mLastCommitStatus = false;
@@ -287,17 +287,46 @@ public class AidRoutingManager {
         return false;
     }
 
+    private void checkOffHostRouteToHost(HashMap<String, AidEntry> routeCache) {
+        Iterator<Map.Entry<String, AidEntry> > it = routeCache.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, AidEntry> entry = it.next();
+            String aid = entry.getKey();
+            AidEntry aidEntry = entry.getValue();
+
+            if (!aidEntry.isOnHost || aidEntry.unCheckedOffHostSE.size() == 0) {
+                continue;
+            }
+            boolean mustHostRoute = aidEntry.unCheckedOffHostSE.stream()
+                    .anyMatch(offHost -> getRouteForSecureElement(offHost) == mDefaultRoute);
+            if (mustHostRoute) {
+                if (DBG) Log.d(TAG, aid + " is route to host due to unchecked off host and " +
+                        "default route(0x" + Integer.toHexString(mDefaultRoute) + ") is same");
+            }
+            else {
+                if (DBG) Log.d(TAG, aid + " remove in host route list");
+                it.remove();
+            }
+        }
+    }
+
     public boolean configureRouting(HashMap<String, AidEntry> aidMap, boolean force) {
         boolean aidRouteResolved = false;
         HashMap<String, AidEntry> aidRoutingTableCache = new HashMap<String, AidEntry>(aidMap.size());
         ArrayList<Integer> seList = new ArrayList<Integer>();
+        int prevDefaultRoute = mDefaultRoute;
         mAidRoutingTableSize = NfcService.getInstance().getAidRoutingTableSize();
         if (mRoutingOptionManager.isRoutingTableOverrided()) {
             mDefaultAidRoute = mRoutingOptionManager.getOverrideDefaultRoute();
+            mDefaultIsoDepRoute = mRoutingOptionManager.getOverrideDefaultIsoDepRoute();
+            mDefaultOffHostRoute = mRoutingOptionManager.getOverrideDefaultOffHostRoute();
+            mDefaultFelicaRoute = mRoutingOptionManager.getOverrideDefaultFelicaRoute();
         } else {
             mDefaultAidRoute = NfcService.getInstance().GetDefaultRouteEntry() >> 0x08;
+            mDefaultIsoDepRoute = mRoutingOptionManager.getDefaultIsoDepRoute();
+            mDefaultOffHostRoute = mRoutingOptionManager.getDefaultOffHostRoute();
+            mDefaultFelicaRoute = mRoutingOptionManager.getDefaultFelicaRoute();
         }
-        mDefaultOffHostRoute = mRoutingOptionManager.getDefaultOffHostRoute();
         boolean isPowerStateUpdated = false;
         Log.e(TAG, "Size of routing table"+mAidRoutingTableSize);
         seList.add(mDefaultAidRoute);
@@ -344,6 +373,13 @@ public class AidRoutingManager {
         }
         if (!seList.contains(ROUTE_HOST))
           seList.add(ROUTE_HOST);
+
+        if (!mRoutingOptionManager.isAutoChangeEnabled() && seList.size() >= 2) {
+            Log.d(TAG, "AutoRouting is not enabled, make only one item in list");
+            int firstRoute = seList.get(0);
+            seList.clear();
+            seList.add(firstRoute);
+        }
 
         synchronized (mLock) {
             mLastCommitStatus = false;
@@ -507,6 +543,12 @@ public class AidRoutingManager {
                     }
                 }
 
+                // Unchecked Offhosts rout to host
+                if (mDefaultRoute != ROUTE_HOST) {
+                    Log.d(TAG, "check offHost route to host");
+                    checkOffHostRouteToHost(aidRoutingTableCache);
+                }
+
                 if (calculateAidRouteSize(aidRoutingTableCache) <= mMaxAidRoutingTableSize ||
                     mRoutingOptionManager.isRoutingTableOverrided()) {
                     aidRouteResolved = true;
@@ -516,9 +558,12 @@ public class AidRoutingManager {
 
             boolean mIsUnrouteRequired = checkUnrouteAid(prevRouteForAid, prevPowerForAid);
             boolean isRouteTableUpdated = checkRouteAid(prevRouteForAid, prevPowerForAid);
+            boolean isRoutingOptionUpdated = (prevDefaultRoute != mDefaultRoute);
 
-            if (isPowerStateUpdated || isRouteTableUpdated || mIsUnrouteRequired || force) {
+            if (isPowerStateUpdated || isRouteTableUpdated || mIsUnrouteRequired
+                    || isRoutingOptionUpdated || force) {
                 if (aidRouteResolved) {
+                    sendRoutingTable(isRoutingOptionUpdated, force);
                     NfcService.getInstance().updateDefaultAidRoute(mDefaultRoute);
                     mLastCommitStatus = true;
                     commit(aidRoutingTableCache);
@@ -565,6 +610,30 @@ public class AidRoutingManager {
         if (NfcService.getInstance().isNfcEnabled())
           NfcService.getInstance().commitRouting();
     }
+
+    private void sendRoutingTable(boolean optionChanged, boolean force) {
+        Log.d(TAG, "sendRoutingTable");
+        if (!mRoutingOptionManager.isRoutingTableOverrided()) {
+            if (mDefaultRoute != ROUTE_HOST) {
+                Log.d(TAG, "Protocol and Technology entries need to sync with"
+                    + " mDefaultRoute: " + mDefaultRoute);
+                mDefaultIsoDepRoute = mDefaultRoute;
+                mDefaultOffHostRoute = mDefaultRoute;
+                mDefaultFelicaRoute = mDefaultRoute;
+            } else {
+                Log.d(TAG, "Default route is DeviceHost, use previous protocol, technology");
+            }
+
+            if (force || optionChanged) {
+                NfcService.getInstance().setIsoDepProtocolRoute(mDefaultIsoDepRoute);
+                NfcService.getInstance().setTechnologyABFRoute(mDefaultOffHostRoute,
+                        mDefaultFelicaRoute);
+            }
+        } else {
+            Log.d(TAG, "Routing table is override, Do not send the protocol, tech");
+        }
+    }
+
     /**
      * This notifies that the AID routing table in the controller
      * has been cleared (usually due to NFC being turned off).
