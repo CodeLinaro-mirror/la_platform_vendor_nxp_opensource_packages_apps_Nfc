@@ -35,5 +35,6 @@
         <permission name="android.permission.DUMP"/>
         <permission name="android.permission.QUERY_CLONED_APPS"/>
         <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
+        <permission name="android.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE"/>
     </privapp-permissions>
 </permissions>
