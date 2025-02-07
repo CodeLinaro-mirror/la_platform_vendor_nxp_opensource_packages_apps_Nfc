@@ -9,8 +9,8 @@ android_test {
     platform_apis: true,
 
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner.stubs.system",
+        "android.test.base.stubs.system",
         "framework-nfc.impl",
         "flag-junit",
         "platform-test-annotations",
@@ -47,6 +47,10 @@ android_test {
         ":framework-nfc-non-updatable-sources",
     ],
 
-    test_suites: ["general-tests"],
+    min_sdk_version: "current",
+    test_suites: [
+        "general-tests",
+        "mts-nfc",
+    ],
 
 }

@@ -1,6 +1,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <statslog_nfc.h>
+#include <nqstatslog_nfc.h>
 
 #include "NfcTag.h"
 #include "nfc_api.h"

@@ -47,7 +47,6 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.sysprop.NfcProperties;
 import android.util.Log;
-import android.util.Pair;
 import android.util.proto.ProtoOutputStream;
 
 import com.android.nfc.NfcService;
@@ -152,6 +151,7 @@ public class RegisteredAidCache {
         String category = null;
         boolean mustRoute = true; // Whether this AID should be routed at all
         ResolvedPrefixConflictAid prefixInfo = null;
+        List<String> unCheckedOffHostSecureElement = new ArrayList<>();
         @Override
         public String toString() {
             return "AidResolveInfo{" +
@@ -348,7 +348,19 @@ public class RegisteredAidCache {
                 if (VDBG) Log.d(TAG, "resolveAidLocked: " + serviceAidInfo.service.getComponent() +
                         " is selected other service");
                 resolveInfo.services.add(serviceAidInfo.service);
+            } else {
+                if (DBG) Log.d(TAG, "resolveAidLocked: " + serviceAidInfo.service.getComponent() +
+                        " is unselected other service");
+                if(!serviceAidInfo.service.isOnHost()) {
+                    String offHostName = serviceAidInfo.service.getOffHostSecureElement();
+                    if (offHostName != null &&
+                            !resolveInfo.unCheckedOffHostSecureElement.contains(offHostName)) {
+                        if (DBG) Log.d(TAG, "add " + offHostName + " to disabled offHosts");
+                        resolveInfo.unCheckedOffHostSecureElement.add(offHostName);
+                    }
+                }
             }
+
         }
     }
 
@@ -723,21 +735,15 @@ public class RegisteredAidCache {
     }
 
     static boolean isExact(String aid) {
-        return (!((aid.endsWith("*") || (aid.endsWith("#")))));
+        return aid == null ? false : !(aid.endsWith("*") || aid.endsWith("#"));
     }
 
     static boolean isPrefix(String aid) {
-        if (aid == null) {
-            return false;
-        }
-        return aid.endsWith("*");
+        return aid == null ? false : aid.endsWith("*");
     }
 
     static boolean isSubset(String aid) {
-        if (aid == null) {
-            return false;
-        }
-        return aid.endsWith("#");
+        return aid == null ? false : aid.endsWith("#");
     }
 
     final class ResolvedPrefixConflictAid {
@@ -1118,6 +1124,14 @@ public class RegisteredAidCache {
             }
             if (resolveInfo.services.size() == 0) {
                 // No interested services
+                // prevent unchecked offhost aids route to offhostSE
+		if (!resolveInfo.unCheckedOffHostSecureElement.isEmpty()) {
+                    aidType.unCheckedOffHostSE.addAll(resolveInfo.unCheckedOffHostSecureElement);
+                    aidType.isOnHost = true;
+                    aidType.power = POWER_STATE_SWITCH_ON;
+                    routingEntries.put(aid, aidType);
+                    force = true;
+		}
             } else if (resolveInfo.defaultService != null) {
                 // There is a default service set, route to where that service resides -
                 // either on the host (HCE) or on an SE.
@@ -1210,20 +1224,20 @@ public class RegisteredAidCache {
         }
     }
 
-    public void onPreferredPaymentServiceChanged(int userId, ComponentName service) {
-        if (DBG) Log.d(TAG, "Preferred payment service changed for user:" + userId);
+    public void onPreferredPaymentServiceChanged(ComponentNameAndUser service) {
+        if (DBG) Log.d(TAG, "Preferred payment service changed for user:" + service.getUserId());
         synchronized (mLock) {
-            mPreferredPaymentService = service;
-            mUserIdPreferredPaymentService = userId;
+            mPreferredPaymentService = service.getComponentName();
+            mUserIdPreferredPaymentService = service.getUserId();
             generateAidCacheLocked();
         }
     }
 
-    public void onPreferredForegroundServiceChanged(int userId, ComponentName service) {
-        if (DBG) Log.d(TAG, "Preferred foreground service changed for user:" + userId);
+    public void onPreferredForegroundServiceChanged(ComponentNameAndUser service) {
+        if (DBG) Log.d(TAG, "Preferred foreground service changed for user:" + service.getUserId());
         synchronized (mLock) {
-            mPreferredForegroundService = service;
-            mUserIdPreferredForegroundService = userId;
+            mPreferredForegroundService = service.getComponentName();
+            mUserIdPreferredForegroundService = service.getUserId();
             generateAidCacheLocked();
         }
     }
@@ -1246,10 +1260,11 @@ public class RegisteredAidCache {
     }
 
     @NonNull
-    public Pair<Integer, ComponentName> getPreferredService() {
+    public ComponentNameAndUser getPreferredService() {
         if (mPreferredForegroundService != null) {
             // return current foreground service
-            return new Pair<>(mUserIdPreferredForegroundService, mPreferredForegroundService);
+            return new ComponentNameAndUser(
+                    mUserIdPreferredForegroundService, mPreferredForegroundService);
         } else {
             // return current preferred service
             return getPreferredPaymentService();
@@ -1257,8 +1272,8 @@ public class RegisteredAidCache {
     }
 
     @NonNull
-    public Pair<Integer, ComponentName> getPreferredPaymentService() {
-         return new Pair<>(mUserIdPreferredPaymentService, mPreferredPaymentService);
+    public ComponentNameAndUser getPreferredPaymentService() {
+         return new ComponentNameAndUser(mUserIdPreferredPaymentService, mPreferredPaymentService);
     }
 
     public boolean isPreferredServicePackageNameForUser(String packageName, int userId) {

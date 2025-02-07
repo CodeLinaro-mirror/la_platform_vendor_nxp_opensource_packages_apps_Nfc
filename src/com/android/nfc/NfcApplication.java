@@ -33,8 +33,6 @@ import java.io.File;
 public class NfcApplication extends Application {
 
     static final String TAG = "NfcApplication";
-    static final String NFC_PROCESS = "com.android.nfc";
-
     NfcService mNfcService;
 
     public NfcApplication() {
@@ -61,7 +59,7 @@ public class NfcApplication extends Application {
         while (i.hasNext()) {
             RunningAppProcessInfo appInfo = (RunningAppProcessInfo)(i.next());
             if (appInfo.pid == Process.myPid()) {
-                isMainProcess =  (NFC_PROCESS.equals(appInfo.processName));
+                isMainProcess =  (getPackageName().equals(appInfo.processName));
                 break;
             }
         }

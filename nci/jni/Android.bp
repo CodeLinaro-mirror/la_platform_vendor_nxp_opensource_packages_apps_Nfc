@@ -3,9 +3,23 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+cc_library_static {
+    name: "libnfc_nqnci_jni_static",
+    defaults: ["libnfc_nqnci_jni_defaults"],
+    visibility: [
+     "//vendor/nxp/opensource/commonsys/packages/apps/Nfc/nci/jni",
+    ],
+}
+
 cc_library_shared {
     name: "libsn100nfc_nci_jni",
     system_ext_specific: true,
+    defaults: ["libnfc_nqnci_jni_defaults"],
+}
+
+cc_defaults {
+    name: "libnfc_nqnci_jni_defaults",
+
     cflags:
      ["-DNXP_EXTNS=TRUE",
       "-DNXP_SRD=TRUE",]  + [
@@ -18,7 +32,10 @@ cc_library_shared {
         "-fexceptions",
     ],
     srcs: ["**/*.cpp"],
-    exclude_srcs: ["NfcTagTest.cpp"],
+    exclude_srcs: [
+        "NfcTagTest.cpp",
+        "DataQueueTest.cpp",
+    ],
 
     include_dirs: [
         "external/libxml2/include",
@@ -61,7 +78,7 @@ cc_library_shared {
         "android.hardware.nfc@1.1",
         "android.hardware.nfc@1.2",
         // Add for AIDL
-        "android.hardware.nfc-V1-ndk",
+        "android.hardware.nfc-V2-ndk",
         "libsn100nfcutils",
         "libsn100nfc-nci",
         "libnfc-nqnci_flags",
@@ -93,19 +110,47 @@ cc_library_shared {
 }
 
 cc_test {
-    name: "nqnfc.nci.jni.tests",
+    name: "libnfc-nqnci-jni-tests",
 
-    srcs: ["NfcTagTest.cpp"],
+    srcs: [
+        "NfcTagTest.cpp",
+        "DataQueueTest.cpp",
+    ],
 
     shared_libs: [
-        "libsn100nfc-nci",
-        "libsn100nfc_nci_jni",
-        "nqlibstatslog_nfc",
+        "libnativehelper",
+        "libcutils",
+        "libutils",
+        "liblog",
+        "libbase",
+        // Treble configuration
+        "libhidlbase",
+        "libutils",
+        "libbinder_ndk",
+        "libstatssocket",
+        "libz",
     ],
 
     static_libs: [
         "libgmock",
         "libgtest",
+        "libsn100nfc-nci",
+        "libnfc_nqnci_jni_static",
+        "android.hardware.nfc@1.0",
+        "android.hardware.nfc@1.1",
+        "android.hardware.nfc@1.2",
+        // Add for AIDL
+        "android.hardware.nfc-V2-ndk",
+        "libnfcutils",
+        "libnfc-nci_flags",
+        "nqlibstatslog_nfc",
+        "android_nfc_flags_aconfig_c_lib",
+        "server_configurable_flags",
+        "libxml2",
+    ],
+
+    defaults: [
+        "aconfig_lib_cc_static_link.defaults",
     ],
 
     header_libs: [
@@ -122,4 +167,23 @@ cc_test {
         "vendor/nxp/opensource/commonsys/external/libnfc-nci/src/nfc/include",
         "vendor/nxp/opensource/commonsys/external/libnfc-nci/utils/include",
     ],
+    test_suites: [
+        "general-tests",
+        "mts-nfc",
+    ],
+    test_config_template: "nfc_test_config_template.xml",
+    // Support multilib variants (using different suffix per sub-architecture), which is needed on
+    // build targets with secondary architectures, as the MTS test suite packaging logic flattens
+    // all test artifacts into a single `testcases` directory.
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+    auto_gen_config: true,
+    min_sdk_version: "current",
 }

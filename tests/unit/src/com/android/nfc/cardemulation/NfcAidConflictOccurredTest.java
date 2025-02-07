@@ -20,6 +20,7 @@
  */
 package com.android.nfc.cardemulation;
 
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +42,7 @@ import android.platform.test.flag.junit.CheckFlagsRule;
 import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.nfc.cardemulation.RegisteredAidCache.AidResolveInfo;
+import com.android.nfc.NfcInjector;
 import com.android.nfc.NfcStatsLog;
 import com.android.nfc.nqflags.Flags;
 
@@ -50,20 +52,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 @RunWith(AndroidJUnit4.class)
 public final class NfcAidConflictOccurredTest {
 
     private static final String TAG = NfcAidConflictOccurredTest.class.getSimpleName();
-    private boolean mNfcSupported;
-
     private MockitoSession mStaticMockSession;
     private HostEmulationManager mHostEmulation;
     @Rule
@@ -72,18 +73,12 @@ public final class NfcAidConflictOccurredTest {
 
     @Before
     public void setUp() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         mStaticMockSession = ExtendedMockito.mockitoSession()
                 .mockStatic(NfcStatsLog.class)
+                .mockStatic(NfcInjector.class)
+                .strictness(Strictness.LENIENT)
                 .startMocking();
-
-        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        PackageManager pm = context.getPackageManager();
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)) {
-            mNfcSupported = false;
-            return;
-        }
-        mNfcSupported = true;
-
         RegisteredAidCache mockAidCache = Mockito.mock(RegisteredAidCache.class);
         ApduServiceInfo apduServiceInfo = Mockito.mock(ApduServiceInfo.class);
         AidResolveInfo aidResolveInfo = mockAidCache.new AidResolveInfo();
@@ -91,6 +86,7 @@ public final class NfcAidConflictOccurredTest {
         aidResolveInfo.services = new ArrayList<ApduServiceInfo>();
         aidResolveInfo.services.add(apduServiceInfo);
         when(mockAidCache.resolveAid(anyString())).thenReturn(aidResolveInfo);
+	when(NfcInjector.getInstance()).thenReturn(Mockito.mock(NfcInjector.class));
 
         Context mockContext = new ContextWrapper(context) {
             @Override
@@ -106,7 +102,7 @@ public final class NfcAidConflictOccurredTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(
               () -> mHostEmulation = new HostEmulationManager(
                       mockContext, mTestLooper.getLooper(), mockAidCache));
-        Assert.assertNotNull(mHostEmulation);
+        assertNotNull(mHostEmulation);
 
         mHostEmulation.onHostEmulationActivated();
     }
@@ -119,8 +115,6 @@ public final class NfcAidConflictOccurredTest {
 
     @Test
     public void testHCEOther() {
-        if (!mNfcSupported) return;
-
         byte[] aidBytes = new byte[] {
             0x00, (byte)0xA4, 0x04, 0x00,  // command
             0x08,  // data length
@@ -137,8 +131,6 @@ public final class NfcAidConflictOccurredTest {
     @Test
     @RequiresFlagsEnabled(Flags.FLAG_TEST_FLAG)
     public void testHCEOtherWithTestFlagEnabled() {
-        if (!mNfcSupported) return;
-
         byte[] aidBytes = new byte[] {
                 0x00, (byte)0xA4, 0x04, 0x00,  // command
                 0x08,  // data length

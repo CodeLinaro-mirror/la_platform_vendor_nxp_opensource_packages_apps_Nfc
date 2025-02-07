@@ -15,6 +15,8 @@
  */
 package com.android.nfc.cardemulation;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,14 +27,12 @@ import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.nfc.NfcService;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
 import org.mockito.quality.Strictness;
@@ -40,147 +40,170 @@ import org.mockito.quality.Strictness;
 @RunWith(AndroidJUnit4.class)
 public class RoutingOptionManagerTest {
 
-  @Mock
-  private NfcService mNfcService;
+    @Mock
+    private NfcService mNfcService;
 
-  @Captor
-  private ArgumentCaptor<Integer> routeCaptor;
+    @Captor
+    private ArgumentCaptor<Integer> mRouteCaptor;
 
-  private static final int DEFAULT_ROUTE = 0;
-  private static final int DEFAULT_ISO_DEP_ROUTE = 1;
-  private static final int OVERRIDDEN_ISO_DEP_ROUTE = 10;
-  private static final int OVERRIDDEN_OFF_HOST_ROUTE = 20;
-  private static final int DEFAULT_OFF_HOST_ROUTE = 2;
-  private static final byte[] OFF_HOST_UICC = new byte[] {1, 2};
-  private static final byte[] OFF_HOST_ESE = new byte[] {3, 4};
-  private static final int AID_MATCHING_MODE = 3;
+    private static final int DEFAULT_ROUTE = 0;
+    private static final int DEFAULT_ISO_DEP_ROUTE = 1;
+    private static final int OVERRIDDEN_ISO_DEP_ROUTE = 10;
+    private static final int OVERRIDDEN_OFF_HOST_ROUTE = 20;
+    private static final int DEFAULT_OFF_HOST_ROUTE = 2;
+    private static final int DEFAULT_FELICA_ROUTE = 3;
+    private static final int DEFAULT_SC_ROUTE = 2;
+    private static final byte[] OFF_HOST_UICC = new byte[] {1, 2};
+    private static final byte[] OFF_HOST_ESE = new byte[] {3, 4};
+    private static final int AID_MATCHING_MODE = 3;
 
-  private static class TestRoutingOptionManager extends RoutingOptionManager {
-    @Override
-    int doGetDefaultRouteDestination() {
-      return DEFAULT_ROUTE;
+    private static class TestRoutingOptionManager extends RoutingOptionManager {
+        @Override
+        int doGetDefaultRouteDestination() {
+            return DEFAULT_ROUTE;
+        }
+
+        @Override
+        int doGetDefaultIsoDepRouteDestination() {
+            return DEFAULT_ISO_DEP_ROUTE;
+        }
+
+        @Override
+        int doGetDefaultOffHostRouteDestination() {
+            return DEFAULT_OFF_HOST_ROUTE;
+        }
+
+        @Override
+        int doGetDefaultFelicaRouteDestination() {
+            return DEFAULT_FELICA_ROUTE;
+        }
+
+        @Override
+        int doGetDefaultScRouteDestination() {
+            return DEFAULT_SC_ROUTE;
+        }
+
+        @Override
+        byte[] doGetOffHostUiccDestination() {
+            return OFF_HOST_UICC;
+        }
+
+        @Override
+        byte[] doGetOffHostEseDestination() {
+            return OFF_HOST_ESE;
+        }
+
+        @Override
+        int doGetAidMatchingMode() {
+            return AID_MATCHING_MODE;
+        }
     }
 
-    @Override
-    int doGetDefaultIsoDepRouteDestination() {
-      return DEFAULT_ISO_DEP_ROUTE;
+    private TestRoutingOptionManager mManager;
+    private MockitoSession mStaticMockSession;
+
+    @Before
+    public void setUp() throws Exception {
+        mStaticMockSession = ExtendedMockito.mockitoSession()
+                .mockStatic(NfcService.class)
+                .strictness(Strictness.LENIENT)
+                .startMocking();
+        MockitoAnnotations.initMocks(this);
+
+        when(NfcService.getInstance()).thenReturn(mNfcService);
     }
 
-    @Override
-    int doGetDefaultOffHostRouteDestination() {
-      return DEFAULT_OFF_HOST_ROUTE;
+    @After
+    public void tearDown() {
+        mStaticMockSession.finishMocking();
     }
 
-    @Override
-    byte[] doGetOffHostUiccDestination() {
-      return OFF_HOST_UICC;
+    @Test
+    public void testConstructor() {
+        mManager = new TestRoutingOptionManager();
+
+        assertEquals(DEFAULT_ROUTE, mManager.mDefaultRoute);
+        assertEquals(DEFAULT_ISO_DEP_ROUTE, mManager.mDefaultIsoDepRoute);
+        assertEquals(DEFAULT_OFF_HOST_ROUTE, mManager.mDefaultOffHostRoute);
+        assertEquals(DEFAULT_FELICA_ROUTE, mManager.mDefaultFelicaRoute);
+        assertEquals(OFF_HOST_UICC, mManager.mOffHostRouteUicc);
+        assertEquals(OFF_HOST_ESE, mManager.mOffHostRouteEse);
+        assertEquals(AID_MATCHING_MODE, mManager.mAidMatchingSupport);
     }
 
-    @Override
-    byte[] doGetOffHostEseDestination() {
-      return OFF_HOST_ESE;
+    @Test
+    public void testOverrideDefaultIsoDepRoute() {
+        mManager = new TestRoutingOptionManager();
+
+        mManager.overrideDefaultIsoDepRoute(OVERRIDDEN_ISO_DEP_ROUTE);
+
+        assertEquals(OVERRIDDEN_ISO_DEP_ROUTE, mManager.getOverrideDefaultIsoDepRoute());
+        verify(mNfcService).setIsoDepProtocolRoute(mRouteCaptor.capture());
+        assertEquals(Integer.valueOf(OVERRIDDEN_ISO_DEP_ROUTE), mRouteCaptor.getValue());
     }
 
-    @Override
-    int doGetAidMatchingMode() {
-      return AID_MATCHING_MODE;
+    @Test
+    public void testOverrideDefaultOffHostRoute() {
+        mManager = new TestRoutingOptionManager();
+
+        mManager.overrideDefaultOffHostRoute(OVERRIDDEN_OFF_HOST_ROUTE);
+
+        assertEquals(OVERRIDDEN_OFF_HOST_ROUTE, mManager.getOverrideDefaultOffHostRoute());
+        verify(mNfcService).setTechnologyABFRoute(mRouteCaptor.capture(), mRouteCaptor.capture());
+        assertEquals(Integer.valueOf(OVERRIDDEN_OFF_HOST_ROUTE), mRouteCaptor.getValue());
     }
-  }
 
-  private TestRoutingOptionManager manager;
-  private MockitoSession mStaticMockSession;
+    @Test
+    public void testOverrideDefaulttRoute() {
+        mManager = new TestRoutingOptionManager();
 
-  @Before
-  public void setUp() throws Exception {
-    mStaticMockSession = ExtendedMockito.mockitoSession()
-        .mockStatic(NfcService.class)
-        .strictness(Strictness.LENIENT)
-        .startMocking();
-    MockitoAnnotations.initMocks(this);
+        mManager.overrideDefaultRoute(OVERRIDDEN_OFF_HOST_ROUTE);
 
-    when(NfcService.getInstance()).thenReturn(mNfcService);
-  }
+        assertEquals(OVERRIDDEN_OFF_HOST_ROUTE, mManager.getOverrideDefaultRoute());
+    }
 
-  @After
-  public void tearDown() {
-    mStaticMockSession.finishMocking();
-  }
+    @Test
+    public void testRecoverOverridedRoutingTable() {
+        mManager = new TestRoutingOptionManager();
 
-  @Test
-  public void testConstructor() {
-    manager = new TestRoutingOptionManager();
+        mManager.recoverOverridedRoutingTable();
 
-    Assert.assertEquals(DEFAULT_ROUTE, manager.mDefaultRoute);
-    Assert.assertEquals(DEFAULT_ISO_DEP_ROUTE, manager.mDefaultIsoDepRoute);
-    Assert.assertEquals(DEFAULT_OFF_HOST_ROUTE, manager.mDefaultOffHostRoute);
-    Assert.assertEquals(OFF_HOST_UICC, manager.mOffHostRouteUicc);
-    Assert.assertEquals(OFF_HOST_ESE, manager.mOffHostRouteEse);
-    Assert.assertEquals(AID_MATCHING_MODE, manager.mAidMatchingSupport);
-  }
+        verify(mNfcService).setIsoDepProtocolRoute(anyInt());
+        verify(mNfcService).setTechnologyABFRoute(anyInt(), anyInt());
+        assertEquals(RoutingOptionManager.ROUTE_UNKNOWN, mManager.mOverrideDefaultRoute);
+        assertEquals(RoutingOptionManager.ROUTE_UNKNOWN, mManager.mOverrideDefaultIsoDepRoute);
+        assertEquals(RoutingOptionManager.ROUTE_UNKNOWN, mManager.mOverrideDefaultOffHostRoute);
+    }
 
-  @Test
-  public void testOverrideDefaultIsoDepRoute() {
-    manager = new TestRoutingOptionManager();
+    @Test
+    public void testGetters() {
+        mManager = new TestRoutingOptionManager();
 
-    manager.overrideDefaultIsoDepRoute(OVERRIDDEN_ISO_DEP_ROUTE);
+        int overrideDefaultRoute = mManager.getOverrideDefaultRoute();
+        int defaultRoute = mManager.getDefaultRoute();
+        int defaultIsoDepRoute = mManager.getDefaultIsoDepRoute();
+        int defaultOffHostRoute = mManager.getDefaultOffHostRoute();
+        int defaultFelicaRoute = mManager.getDefaultFelicaRoute();
+        byte[] offHostRouteUicc = mManager.getOffHostRouteUicc();
+        byte[] offHostRouteEse = mManager.getOffHostRouteEse();
+        int aidMatchingSupport = mManager.getAidMatchingSupport();
 
-    Assert.assertEquals(OVERRIDDEN_ISO_DEP_ROUTE, manager.mOverrideDefaultRoute);
-    Assert.assertEquals(OVERRIDDEN_ISO_DEP_ROUTE, manager.mOverrideDefaultIsoDepRoute);
-    verify(mNfcService).setIsoDepProtocolRoute(routeCaptor.capture());
-    Assert.assertEquals(routeCaptor.getValue(), Integer.valueOf(OVERRIDDEN_ISO_DEP_ROUTE));
-  }
+        assertEquals(-1, overrideDefaultRoute);
+        assertEquals(DEFAULT_ROUTE, defaultRoute);
+        assertEquals(DEFAULT_ISO_DEP_ROUTE, defaultIsoDepRoute);
+        assertEquals(DEFAULT_OFF_HOST_ROUTE, defaultOffHostRoute);
+        assertEquals(DEFAULT_FELICA_ROUTE, defaultFelicaRoute);
+        assertEquals(OFF_HOST_UICC, offHostRouteUicc);
+        assertEquals(OFF_HOST_ESE, offHostRouteEse);
+        assertEquals(AID_MATCHING_MODE, aidMatchingSupport);
+    }
 
-  @Test
-  public void testOverrideDefaultOffHostRoute() {
-    manager = new TestRoutingOptionManager();
+    @Test
+    public void testIsRoutingTableOverrided() {
+        mManager = new TestRoutingOptionManager();
 
-    manager.overrideDefaultOffHostRoute(OVERRIDDEN_OFF_HOST_ROUTE);
+        boolean result = mManager.isRoutingTableOverrided();
 
-    Assert.assertEquals(OVERRIDDEN_OFF_HOST_ROUTE, manager.mOverrideDefaultOffHostRoute);
-    verify(mNfcService).setTechnologyABRoute(routeCaptor.capture());
-    Assert.assertEquals(routeCaptor.getValue(), Integer.valueOf(OVERRIDDEN_OFF_HOST_ROUTE));
-  }
-
-  @Test
-  public void testRecoverOverridedRoutingTable() {
-    manager = new TestRoutingOptionManager();
-
-    manager.recoverOverridedRoutingTable();
-
-    verify(mNfcService).setIsoDepProtocolRoute(anyInt());
-    verify(mNfcService).setTechnologyABRoute(anyInt());
-    Assert.assertEquals(RoutingOptionManager.ROUTE_UNKNOWN, manager.mOverrideDefaultRoute);
-    Assert.assertEquals(RoutingOptionManager.ROUTE_UNKNOWN, manager.mOverrideDefaultIsoDepRoute);
-    Assert.assertEquals(RoutingOptionManager.ROUTE_UNKNOWN, manager.mOverrideDefaultOffHostRoute);
-  }
-
-  @Test
-  public void testGetters() {
-    manager = new TestRoutingOptionManager();
-
-    int overrideDefaultRoute = manager.getOverrideDefaultRoute();
-    int defaultRoute = manager.getDefaultRoute();
-    int defaultIsoDepRoute = manager.getDefaultIsoDepRoute();
-    int defaultOffHostRoute = manager.getDefaultOffHostRoute();
-    byte[] offHostRouteUicc = manager.getOffHostRouteUicc();
-    byte[] offHostRouteEse = manager.getOffHostRouteEse();
-    int aidMatchingSupport = manager.getAidMatchingSupport();
-
-    Assert.assertEquals(-1, overrideDefaultRoute);
-    Assert.assertEquals(DEFAULT_ROUTE, defaultRoute);
-    Assert.assertEquals(DEFAULT_ISO_DEP_ROUTE, defaultIsoDepRoute);
-    Assert.assertEquals(DEFAULT_OFF_HOST_ROUTE, defaultOffHostRoute);
-    Assert.assertEquals(offHostRouteUicc, OFF_HOST_UICC);
-    Assert.assertEquals(offHostRouteEse, OFF_HOST_ESE);
-    Assert.assertEquals(AID_MATCHING_MODE, aidMatchingSupport);
-  }
-
-  @Test
-  public void testIsRoutingTableOverrided() {
-    manager = new TestRoutingOptionManager();
-
-    boolean result = manager.isRoutingTableOverrided();
-
-    Assert.assertFalse(result);
-  }
+        assertFalse(result);
+    }
 }

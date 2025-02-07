@@ -74,6 +74,9 @@ const JNINativeMethod RoutingManager::sMethods[] = {
     {"doGetDefaultOffHostRouteDestination", "()I",
      (void*)RoutingManager::
          com_android_nfc_cardemulation_doGetDefaultOffHostRouteDestination},
+    {"doGetDefaultFelicaRouteDestination", "()I",
+     (void*)RoutingManager::
+         com_android_nfc_cardemulation_doGetDefaultFelicaRouteDestination},
     {"doGetOffHostUiccDestination", "()[B",
      (void*)RoutingManager::
          com_android_nfc_cardemulation_doGetOffHostUiccDestination},
@@ -85,7 +88,10 @@ const JNINativeMethod RoutingManager::sMethods[] = {
          RoutingManager::com_android_nfc_cardemulation_doGetAidMatchingMode},
     {"doGetDefaultIsoDepRouteDestination", "()I",
      (void*)RoutingManager::
-         com_android_nfc_cardemulation_doGetDefaultIsoDepRouteDestination}};
+         com_android_nfc_cardemulation_doGetDefaultIsoDepRouteDestination},
+    {"doGetDefaultScRouteDestination", "()I",
+     (void*)RoutingManager::
+         com_android_nfc_cardemulation_doGetDefaultScRouteDestination}};
 
 static const int MAX_NUM_EE = 6;
 // SCBR from host works only when App is in foreground
@@ -610,6 +616,93 @@ void RoutingManager::notifyActivated(uint8_t technology) {
   }
 }
 
+bool RoutingManager::getNameOfEe(tNFA_HANDLE ee_handle, std::string& eeName) {
+  if (mOffHostRouteEse.size() == 0) {
+    return false;
+  }
+  ee_handle &= ~NFA_HANDLE_GROUP_EE;
+
+  for (uint8_t i = 0; i < mOffHostRouteEse.size(); i++) {
+    if (ee_handle == mOffHostRouteEse[i]) {
+      eeName = "eSE" + std::to_string(i + 1);
+      return true;
+    }
+  }
+  for (uint8_t i = 0; i < mOffHostRouteUicc.size(); i++) {
+    if (ee_handle == mOffHostRouteUicc[i]) {
+      eeName = "SIM" + std::to_string(i + 1);
+      return true;
+    }
+  }
+
+  LOG(WARNING) << "Incorrect EE Id";
+  return false;
+}
+
+void RoutingManager::notifyEeAidSelected(tNFC_AID& nfcaid,
+                                         tNFA_HANDLE ee_handle) {
+  std::vector<uint8_t> aid(nfcaid.aid, nfcaid.aid + nfcaid.len_aid);
+  if (aid.empty()) {
+    return;
+  }
+
+  JNIEnv* e = NULL;
+  ScopedAttach attach(mNativeData->vm, &e);
+  CHECK(e);
+
+  ScopedLocalRef<jobject> aidJavaArray(e, e->NewByteArray(aid.size()));
+  CHECK(aidJavaArray.get());
+  e->SetByteArrayRegion((jbyteArray)aidJavaArray.get(), 0, aid.size(),
+                        (jbyte*)&aid[0]);
+  CHECK(!e->ExceptionCheck());
+
+  std::string evtSrc;
+  if (!getNameOfEe(ee_handle, evtSrc)) {
+    return;
+  }
+
+  ScopedLocalRef<jobject> srcJavaString(e, e->NewStringUTF(evtSrc.c_str()));
+  CHECK(srcJavaString.get());
+  e->CallVoidMethod(mNativeData->manager,
+                    android::gCachedNfcManagerNotifyEeAidSelected,
+                    aidJavaArray.get(), srcJavaString.get());
+}
+
+void RoutingManager::notifyEeProtocolSelected(uint8_t protocol,
+                                              tNFA_HANDLE ee_handle) {
+  JNIEnv* e = NULL;
+  ScopedAttach attach(mNativeData->vm, &e);
+  CHECK(e);
+
+  std::string evtSrc;
+  if (!getNameOfEe(ee_handle, evtSrc)) {
+    return;
+  }
+
+  ScopedLocalRef<jobject> srcJavaString(e, e->NewStringUTF(evtSrc.c_str()));
+  CHECK(srcJavaString.get());
+  e->CallVoidMethod(mNativeData->manager,
+                    android::gCachedNfcManagerNotifyEeProtocolSelected,
+                    protocol, srcJavaString.get());
+}
+
+void RoutingManager::notifyEeTechSelected(uint8_t tech, tNFA_HANDLE ee_handle) {
+  JNIEnv* e = NULL;
+  ScopedAttach attach(mNativeData->vm, &e);
+  CHECK(e);
+
+  std::string evtSrc;
+  if (!getNameOfEe(ee_handle, evtSrc)) {
+    return;
+  }
+
+  ScopedLocalRef<jobject> srcJavaString(e, e->NewStringUTF(evtSrc.c_str()));
+  CHECK(srcJavaString.get());
+  e->CallVoidMethod(mNativeData->manager,
+                    android::gCachedNfcManagerNotifyEeTechSelected, tech,
+                    srcJavaString.get());
+}
+
 void RoutingManager::notifyDeactivated(uint8_t technology) {
 #if (NXP_EXTNS == TRUE)
   SecureElement::getInstance().notifyListenModeState (false);
@@ -766,6 +859,26 @@ void RoutingManager::updateIsoDepProtocolRoute(int route) {
   updateDefaultProtocolRoute();
 }
 
+/*******************************************************************************
+**
+** Function:        updateSystemCodeRoute
+**
+** Description:     Updates the route for System Code
+**
+** Returns:         None
+**
+*******************************************************************************/
+void RoutingManager::updateSystemCodeRoute(int route) {
+  static const char fn[] = "RoutingManager::updateSystemCodeRoute";
+  LOG(DEBUG) << StringPrintf("%s; New default SC route: 0x%x", fn,
+                             route);
+#if (NXP_EXTNS != TRUE)
+  mEeInfoChanged = true;
+#endif
+  mDefaultSysCodeRoute = route;
+  updateDefaultRoute();
+}
+
 void RoutingManager::updateDefaultProtocolRoute() {
   static const char fn[] = "RoutingManager::updateDefaultProtocolRoute";
 
@@ -804,6 +917,9 @@ void RoutingManager::updateDefaultProtocolRoute() {
     nfaStat = NFA_EeClearDefaultProtoRouting(NFC_DH_ID, protoMask);
     nfaStat = NFA_EeSetDefaultProtoRouting(
         NFC_DH_ID, protoMask, 0, 0, mSecureNfcEnabled ? 0 : protoMask, 0, 0);
+#if (NXP_EXTNS == TRUE)
+    mDefaultIsoDepRoute = NFC_DH_ID;
+#endif
   }
   if (nfaStat == NFA_STATUS_OK)
     LOG(DEBUG) << fn << ": Succeed to register default ISO-DEP route";
@@ -898,8 +1014,9 @@ void RoutingManager::updateDefaultRoute() {
 #endif
 }
 
-tNFA_TECHNOLOGY_MASK RoutingManager::updateTechnologyABRoute(int route) {
-  static const char fn[] = "RoutingManager::updateTechnologyABRoute";
+tNFA_TECHNOLOGY_MASK RoutingManager::updateTechnologyABFRoute(int route,
+                                                              int felicaRoute) {
+  static const char fn[] = "RoutingManager::updateTechnologyABFRoute";
 
   tNFA_STATUS nfaStat;
 
@@ -932,6 +1049,14 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateTechnologyABRoute(int route) {
   else
     LOG(ERROR) << fn << "Fail to clear Tech route";
 
+  nfaStat =
+      NFA_EeClearDefaultTechRouting(mDefaultFelicaRoute, NFA_TECHNOLOGY_MASK_F);
+  if (nfaStat == NFA_STATUS_OK)
+    mRoutingEvent.wait();
+  else
+    LOG(ERROR) << fn << "Fail to clear Default Felica route";
+
+  mDefaultFelicaRoute = felicaRoute;
   mDefaultOffHostRoute = route;
   return updateEeTechRouteSetting();
 }
@@ -940,17 +1065,17 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
   static const char fn[] = "RoutingManager::updateEeTechRouteSetting";
   tNFA_TECHNOLOGY_MASK allSeTechMask = 0x00;
 
+#if(NXP_EXTNS == TRUE)
   int handleDefaultOffHost = SecureElement::getInstance().getEseHandleFromGenericId(mDefaultOffHostRoute);
   int handleDefaultFelicaRoute = SecureElement::getInstance().getEseHandleFromGenericId(mDefaultFelicaRoute);
-
-#if(NXP_EXTNS != TRUE)
-  if (mDefaultOffHostRoute == 0 && mDefaultFelicaRoute == 0)
-    return allSeTechMask;
 #endif
 
   LOG(DEBUG) << fn << ": Number of EE is " << (int)mEeInfo.num_ee;
 
   tNFA_STATUS nfaStat;
+
+  bool offHostRouteFound = false;
+  bool felicaRouteFound = false;
   for (uint8_t i = 0; i < mEeInfo.num_ee; i++) {
     tNFA_HANDLE eeHandle = mEeInfo.ee_disc_info[i].ee_handle;
     tNFA_TECHNOLOGY_MASK seTechMask = 0;
@@ -969,21 +1094,25 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
 #else
         (eeHandle == handleDefaultOffHost)) {
 #endif
+      offHostRouteFound = true;
       if (mEeInfo.ee_disc_info[i].la_protocol != 0)
         seTechMask |= NFA_TECHNOLOGY_MASK_A;
       if (mEeInfo.ee_disc_info[i].lb_protocol != 0)
         seTechMask |= NFA_TECHNOLOGY_MASK_B;
-      if (mEeInfo.ee_disc_info[i].lf_protocol != 0)
-        seTechMask |= NFA_TECHNOLOGY_MASK_F;
     }
 
-#if(NXP_EXTNS != TRUE)
     if ((mDefaultFelicaRoute != 0) &&
+#if(NXP_EXTNS != TRUE)
         (eeHandle == (mDefaultFelicaRoute | NFA_HANDLE_GROUP_EE))) {
+#else
+        (eeHandle == handleDefaultFelicaRoute)) {
+#endif
+      felicaRouteFound = true;
       if (mEeInfo.ee_disc_info[i].lf_protocol != 0)
         seTechMask |= NFA_TECHNOLOGY_MASK_F;
+      else
+        mDefaultFelicaRoute = NFC_DH_ID;
     }
-#endif
 
     // If OFFHOST_LISTEN_TECH_MASK exists,
     // filter out the unspecified technologies
@@ -1000,13 +1129,7 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
         LOG(ERROR) << fn << "Failed to configure UICC listen technologies.";
 
       // clear previous before setting new power state
-#if (NXP_EXTNS != TRUE)
       nfaStat = NFA_EeClearDefaultTechRouting(eeHandle, seTechMask);
-#else
-      nfaStat = NFA_EeClearDefaultTechRouting(
-          eeHandle, NFA_TECHNOLOGY_MASK_A | NFA_TECHNOLOGY_MASK_B |
-                        NFA_TECHNOLOGY_MASK_F);
-#endif
       if (nfaStat != NFA_STATUS_OK)
         LOG(ERROR) << fn << "Failed to clear EE technology routing.";
 
@@ -1022,13 +1145,26 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
     }
   }
 
-  if (mDefaultOffHostRoute == NFC_DH_ID) {
-    tNFA_TECHNOLOGY_MASK hostTechMask = 0;
-    LOG(DEBUG) << StringPrintf(
-        "%s: Setting technology route to host with A,B and F type", fn);
-    hostTechMask |= NFA_TECHNOLOGY_MASK_A;
-    hostTechMask |= NFA_TECHNOLOGY_MASK_B;
-    hostTechMask |= NFA_TECHNOLOGY_MASK_F;
+  if (!offHostRouteFound) {
+    mDefaultOffHostRoute = NFC_DH_ID;
+  }
+  if (!felicaRouteFound) {
+    mDefaultFelicaRoute = NFC_DH_ID;
+  }
+
+  tNFA_TECHNOLOGY_MASK hostTechMask = 0;
+  if (mDefaultOffHostRoute == NFC_DH_ID || mDefaultFelicaRoute == NFC_DH_ID) {
+    if (mDefaultOffHostRoute == NFC_DH_ID) {
+      LOG(DEBUG) << StringPrintf(
+          "%s: Setting technology route to host with A,B type", fn);
+      hostTechMask |= NFA_TECHNOLOGY_MASK_A;
+      hostTechMask |= NFA_TECHNOLOGY_MASK_B;
+    }
+    if (mDefaultFelicaRoute == NFC_DH_ID) {
+      LOG(DEBUG) << StringPrintf(
+          "%s: Setting technology route to host with F type", fn);
+      hostTechMask |= NFA_TECHNOLOGY_MASK_F;
+    }
     hostTechMask &= mHostListenTechMask;
 
     nfaStat = NFA_EeSetDefaultTechRouting(NFC_DH_ID, hostTechMask, 0, 0,
@@ -1041,7 +1177,6 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
     nfaStat = NFA_CeConfigureUiccListenTech(NFC_DH_ID, hostTechMask);
       if (nfaStat != NFA_STATUS_OK)
         LOG(ERROR) << fn << "Failed to configure DH UICC listen technologies.";
-    return hostTechMask;
   }
 
   // Clear DH technology route on NFC-A
@@ -1555,6 +1690,11 @@ int RoutingManager::
   return getInstance().mDefaultOffHostRoute;
 }
 
+int RoutingManager::
+    com_android_nfc_cardemulation_doGetDefaultFelicaRouteDestination(JNIEnv*) {
+  return getInstance().mDefaultFelicaRoute;
+}
+
 jbyteArray
 RoutingManager::com_android_nfc_cardemulation_doGetOffHostUiccDestination(
     JNIEnv* e) {
@@ -1591,6 +1731,20 @@ int RoutingManager::com_android_nfc_cardemulation_doGetAidMatchingMode(
 int RoutingManager::
     com_android_nfc_cardemulation_doGetDefaultIsoDepRouteDestination(JNIEnv*) {
   return getInstance().mDefaultIsoDepRoute;
+}
+
+/*******************************************************************************
+**
+** Function:        com_android_nfc_cardemulation_doGetDefaultScRouteDestination
+**
+** Description:     Retrieves the default NFCEE route
+**
+** Returns:         default NFCEE route
+**
+*******************************************************************************/
+int RoutingManager::com_android_nfc_cardemulation_doGetDefaultScRouteDestination(
+    JNIEnv*) {
+  return getInstance().mDefaultSysCodeRoute;
 }
 
 #if(NXP_EXTNS == TRUE)
@@ -1882,11 +2036,6 @@ bool RoutingManager::setRoutingEntry(int type, int value, int route, int power)
             {
                 protocol_mask = NFA_PROTOCOL_MASK_ISO_DEP;
                 value &= ~(0x01);
-            }
-            else if( value & 0x02)
-            {
-                protocol_mask = NFA_PROTOCOL_MASK_NFC_DEP;
-                value &= ~(0x02);
             }
             else if( value & 0x04)
             {

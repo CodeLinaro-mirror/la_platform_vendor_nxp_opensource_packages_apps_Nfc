@@ -40,7 +40,7 @@ import android.nfc.cardemulation.PollingFrame;
 import android.os.Bundle;
 
 import java.io.FileDescriptor;
-import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 
 public interface DeviceHost {
@@ -80,6 +80,12 @@ public interface DeviceHost {
         public void onPollingLoopDetected(List<PollingFrame> pollingFrames);
 
         public void onVendorSpecificEvent(int gid, int oid, byte[] payload);
+
+        public void onObserveModeStateChanged(boolean enable);
+
+        public void onRfDiscoveryEvent(boolean isDiscoveryStarted);
+
+        public void onSeSelected();
         /**
          * Notifies SWP Reader Events.
          */
@@ -185,6 +191,8 @@ public interface DeviceHost {
 
     public boolean initialize();
 
+    public void setPartialInitMode(int mode);
+
     public boolean deinitialize();
 
     public String getName();
@@ -248,7 +256,7 @@ public interface DeviceHost {
 
     boolean getExtendedLengthApdusSupported();
 
-    void dump(FileDescriptor fd);
+    void dump(PrintWriter pw, FileDescriptor fd);
 
     public void doSetScreenState(int screen_state_mask);
 
@@ -303,7 +311,11 @@ public interface DeviceHost {
     void startStopPolling(boolean enable);
 
     void setIsoDepProtocolRoute(int route);
-    void setTechnologyABRoute(int route);
+    /**
+    * Set NFCC technology routing for ABF listening
+    */
+    void setTechnologyABFRoute(int route, int felicaRoute);
+    void setSystemCodeRoute(int route);
     void clearRoutingEntry(int clearFlags);
 
     /**
@@ -317,6 +329,10 @@ public interface DeviceHost {
     NfcVendorNciResponse sendRawVendorCmd(int mt, int gid, int oid, byte[] payload);
 
     void enableVendorNciNotifications(boolean enabled);
+    /**
+     * Get the active NFCEE list
+     */
+    public List<String> dofetchActiveNfceeList();
 
     /* NXP extension are here */
     public boolean accessControlForCOSU (int mode);

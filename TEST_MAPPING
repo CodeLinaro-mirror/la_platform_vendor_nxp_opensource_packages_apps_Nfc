@@ -1,25 +1,29 @@
 {
   "presubmit": [
     {
+      "name": "NqNfcTestCases"
+    },
+    {
       "name": "CtsNfcTestCases"
     },
     {
-      "name": "NfcNciUnitTests"
+      "name": "NqNfcNciUnitTests"
     }
     {
-      "name": "NfcNciInstrumentationTests"
+      "name": "NqNfcNciInstrumentationTests"
     }
   ],
   "postsubmit": [
-    {
-      "name": "NqNfcTestCases"
-    },
     {
       "name": "NqNfcNciInstrumentationTests",
       "keywords": ["primary-device"]
     },
     {
       "name": "NqNfcNciUnitTests",
+      "keywords": ["primary-device"]
+    },
+    {
+      "name": "libnfc-nqnci-jni-tests",
       "keywords": ["primary-device"]
     }
   ],
