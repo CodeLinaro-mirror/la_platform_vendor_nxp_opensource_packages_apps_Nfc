@@ -136,7 +136,7 @@ filegroup {
         "src/**/*.java",
         "nci/**/*.java",
         ":framework-nfc-javastream-protos",
-        ":statslog-Nfc-java-gen",
+    //  ":statslog-Nfc-java-gen",
     ],
     visibility: [
         "//vendor/nxp/opensource/commonsys/packages/apps/Nfc/tests/unit",
