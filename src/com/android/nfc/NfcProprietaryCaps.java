@@ -26,10 +26,14 @@ public class NfcProprietaryCaps {
     private static final int POLLING_FRAME_NTF = 1;
     private static final int POWER_SAVING_MODE = 2;
     private static final int AUTOTRANSACT_POLLING_LOOP_FILTER = 3;
+    private static final int NUMBER_OF_EXIT_FRAMES_SUPPORTED = 4;
+    private static final int READER_MODE_ANNOTATIONS_SUPPORTED = 5;
     private final PassiveObserveMode mPassiveObserveMode;
     private final boolean mIsPollingFrameNotificationSupported;
     private final boolean mIsPowerSavingModeSupported;
     private final boolean mIsAutotransactPollingLoopFilterSupported;
+    private final int mNumberOfExitFramesSupported;
+    private final boolean mIsReaderModeAnnotationSupported;
 
     public enum PassiveObserveMode {
         NOT_SUPPORTED,
@@ -53,13 +57,24 @@ public class NfcProprietaryCaps {
         return mIsAutotransactPollingLoopFilterSupported;
     }
 
+    public int getNumberOfExitFramesSupported() {
+        return mNumberOfExitFramesSupported;
+    }
+
+    public boolean isReaderModeAnnotationSupported() {
+        return mIsReaderModeAnnotationSupported;
+    }
+
     public NfcProprietaryCaps(PassiveObserveMode passiveObserveMode,
             boolean isPollingFrameNotificationSupported, boolean isPowerSavingModeSupported,
-            boolean isAutotransactPollingLoopFilterSupported) {
+            boolean isAutotransactPollingLoopFilterSupported, int numberOfExitFramesSupported,
+            boolean isReaderModeAnnotationSupported) {
         mPassiveObserveMode = passiveObserveMode;
         mIsPollingFrameNotificationSupported = isPollingFrameNotificationSupported;
         mIsPowerSavingModeSupported = isPowerSavingModeSupported;
         mIsAutotransactPollingLoopFilterSupported = isAutotransactPollingLoopFilterSupported;
+        mNumberOfExitFramesSupported = numberOfExitFramesSupported;
+        mIsReaderModeAnnotationSupported = isReaderModeAnnotationSupported;
     }
 
     public static NfcProprietaryCaps createFromByteArray(byte[] caps) {
@@ -68,6 +83,8 @@ public class NfcProprietaryCaps {
         boolean isPollingFrameNotificationSupported = false;
         boolean isPowerSavingModeSupported = false;
         boolean isAutotransactPollingLoopFilterSupported  = false;
+        int numberOfExitFramesSupported = 0;
+        boolean isReaderModeAnnotationSupported = false;
         int offset = 0;
         while ((offset + 2) < caps.length) {
             int id = caps[offset++];
@@ -99,10 +116,16 @@ public class NfcProprietaryCaps {
                 case AUTOTRANSACT_POLLING_LOOP_FILTER:
                     isAutotransactPollingLoopFilterSupported = caps[value_offset] == 0x1;
                     break;
+                case NUMBER_OF_EXIT_FRAMES_SUPPORTED:
+                    numberOfExitFramesSupported = caps[value_offset];
+                case READER_MODE_ANNOTATIONS_SUPPORTED:
+                    isReaderModeAnnotationSupported = caps[value_offset] == 0x1;
+                    break;
             }
         }
         return new NfcProprietaryCaps(passiveObserveMode, isPollingFrameNotificationSupported,
-                isPowerSavingModeSupported, isAutotransactPollingLoopFilterSupported);
+                isPowerSavingModeSupported, isAutotransactPollingLoopFilterSupported,
+                numberOfExitFramesSupported, isReaderModeAnnotationSupported);
     }
 
     @Override
