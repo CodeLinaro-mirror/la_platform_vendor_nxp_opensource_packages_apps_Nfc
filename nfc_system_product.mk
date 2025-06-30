@@ -1,4 +1,4 @@
-ifeq ($(TARGET_FWK_SUPPORTS_FULL_VALUEADDS), true)
+ifeq ($(0), true)
 TARGET_USES_QSSI_NQ_NFC := true
 
 NQ_SYSTEM_NFC := NQNfcNci
